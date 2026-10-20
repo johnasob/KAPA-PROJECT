@@ -1,12 +1,14 @@
 # Paquete web de KAPA 3D
 
-`KAPA-3D-web.zip` contiene la compilación de la interfaz conectada al proyecto alojado de Supabase. Incluye únicamente archivos públicos del frontend; no incluye `.env.local`, claves privadas, usuarios, contraseñas ni copias de la base de datos.
+**Distribución del ZIP suspendida.** Microsoft Defender detectó `Trojan:Script/Ulthar.A!ml` en el paquete publicado. Se retiró `KAPA-3D-web.zip` de la rama principal mientras se aclara la detección. No se ha confirmado un falso positivo. Consulta el [informe de revisión](../docs/download-review.md).
 
-El paquete puede descargarse desde [su vista en GitHub](https://github.com/johnasob/KAPA-PROJECT/blob/main/release/KAPA-3D-web.zip) usando **Download raw file**. Si GitHub solicita autenticación, inicia sesión con una cuenta que tenga acceso al repositorio. Al descomprimirlo aparece la carpeta `KAPA-3D`, que contiene directamente `index.html`, `assets` y `_redirects`. Esa carpeta es la que se sube a Netlify Drop.
+No descargar versiones del historial para evitar la alerta, desactivar el antivirus ni desplegar el contenido señalado por otra vía. Una compilación nueva reprodujo exactamente los archivos señalados; recompilar no resuelve por sí solo la detección.
+
+El paquete retirado contenía la compilación de la interfaz conectada al proyecto alojado de Supabase: archivos públicos del frontend, sin `.env.local`, claves privadas, usuarios, contraseñas ni copias de la base de datos.
 
 La clave pública de Supabase forma parte del frontend por diseño. La seguridad del negocio depende de las políticas RLS y de la asignación de las cuentas reales. El paquete no crea tablas ni usuarios y no supone que el backend alojado ya esté configurado o validado.
 
-Para reconstruirlo con otro proyecto, configura las variables públicas y ejecuta `npm run build:deploy`. Consulta `docs/deployment.md` antes de publicarlo.
+El código y el instalador SQL se conservan para revisión. `npm run build:deploy` y `npm run release` siguen siendo herramientas de desarrollo; una compilación correcta no autoriza a considerar resuelta la detección ni a redistribuir el ZIP. Consulta `docs/deployment.md` antes de publicar.
 
 ## Registro de usuarios
 

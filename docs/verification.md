@@ -1,5 +1,7 @@
 # Verificación de la fase 1
 
+**Alerta de descarga pendiente:** Microsoft Defender reportó `Trojan:Script/Ulthar.A!ml` en el ZIP. Los resultados funcionales que se enumeran abajo no son una validación antivirus. La [revisión de la descarga](./download-review.md) documenta la reproducción exacta de los archivos y las comprobaciones que todavía faltan.
+
 Validación actualizada el 20 de octubre de 2026 en el entorno cloud, con Node 24.19.0, Chromium y Supabase local real (Auth, PostgREST y PostgreSQL 17). No se usaron respuestas de API simuladas en las pruebas de integración.
 
 | Comprobación | Resultado |

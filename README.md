@@ -1,5 +1,7 @@
 # KAPA 3D
 
+**Descarga suspendida:** el ZIP fue retirado de la rama principal tras una alerta de Microsoft Defender `Trojan:Script/Ulthar.A!ml`. La detección sigue pendiente de resolver. Consulta el [informe de revisión](docs/download-review.md) antes de descargar o publicar una compilación. No desactives la protección para abrir el paquete.
+
 Aplicación web para el negocio colombiano de impresión 3D de John y Sebas. **Fase 1: fundamentos.** Incluye registro con nombre, correo y contraseña, acceso privado, recuperación de contraseña, socios 50/50, aprobación de cuentas desde la app, configuración persistente, auditoría y navegación móvil. Inventario, costos, pedidos, caja y reportes se implementarán en las fases siguientes; no se muestran saldos o ventas inventados.
 
 ## Requisitos

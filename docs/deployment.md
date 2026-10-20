@@ -1,12 +1,14 @@
 # Abrir KAPA 3D desde un navegador propio
 
+**Publicación pendiente de revisión de seguridad:** Microsoft Defender detectó `Trojan:Script/Ulthar.A!ml` en el ZIP. Se retiró la descarga de la rama principal y se pausó la recomendación de desplegar este contenido. Una compilación nueva reproduce los archivos señalados; importar el repositorio a un alojamiento no resuelve la detección. Consulta el [informe](./download-review.md). Las instrucciones siguientes describen la configuración técnica para cuando se aclare el resultado.
+
 ## Estado actual
 
 La aplicación funciona dentro de la máquina privada de Codex y se probó con Supabase local. Esa máquina no tiene una dirección pública configurada. Los enlaces de archivos y las capturas no abren una aplicación interactiva. Publicar el entorno de desarrollo tampoco publica el sitio web.
 
 Ya se configuraron la URL y la clave pública del proyecto alojado en el entorno de Codex y se compiló el frontend con esos valores. Falta verificar/aplicar el esquema y las cuentas de John y Sebas, además de publicar el frontend. No hay una cuenta de alojamiento conectada a esta sesión ni una URL pública de KAPA 3D.
 
-El paquete está disponible en [GitHub: release/KAPA-3D-web.zip](https://github.com/johnasob/KAPA-PROJECT/blob/main/release/KAPA-3D-web.zip). Abre el archivo con tu cuenta de GitHub y pulsa **Download raw file** para descargarlo. Al extraerlo aparece la carpeta `KAPA-3D`, que contiene directamente `index.html`, `assets`, `_redirects` y el icono. Esa es la carpeta que se sube en el despliegue manual, sin incluir variables ni archivos de configuración privados. No depende de enlaces a archivos privados de Codex.
+El ZIP previamente publicado se retiró de la rama principal tras la detección indicada. No se recomienda recuperar copias del historial. La compilación web genera `index.html`, `assets`, `_redirects` y el icono; que esos archivos se generen correctamente no demuestra su seguridad frente a antivirus.
 
 La comprobación de la API alojada desde Codex encontró un bloqueo de red (CONNECT 403). Se guardó en el borrador la adición del hostname exacto del proyecto. Hasta aplicar ese cambio y repetir la comprobación no se afirma que la base alojada esté verificada. Esta restricción de la máquina de Codex es independiente del acceso desde el navegador del usuario.
 
@@ -38,7 +40,7 @@ Para regenerar además el ZIP y el instalador SQL, ejecuta `npm run release`.
 
 ## 3. Publicar el frontend
 
-Accede a tu cuenta de Netlify y utiliza su opción de despliegue manual para subir la carpeta `KAPA-3D` que extrajiste del paquete, o el contenido del `dist` generado con éxito. El código y el paquete ya están subidos a la rama `main` de [johnasob/KAPA-PROJECT](https://github.com/johnasob/KAPA-PROJECT); también puedes importar ese repositorio desde Netlify.
+Una vez aclarada la detección, Netlify permite desplegar el contenido de `dist` o importar la rama `main` de [johnasob/KAPA-PROJECT](https://github.com/johnasob/KAPA-PROJECT). La vía de publicación elegida no sustituye el análisis pendiente de la muestra.
 
 En un despliegue conectado a Git, configura las dos variables públicas también en Netlify antes de compilar. No subas `.env.local`, el proyecto completo con sus cachés ni claves administrativas.
 

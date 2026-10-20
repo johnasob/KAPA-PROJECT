@@ -1,0 +1,78 @@
+{
+  "commit": "c883cbb5eaa7fd1b75f936d7d9ebaec6ba465048",
+  "scripts_disabled_during_dependency_install": true,
+  "file_list_identical": true,
+  "all_bytes_identical": true,
+  "files": [
+    {
+      "file": "KAPA-3D/_redirects",
+      "identical": true,
+      "sha256": "6036983e5fc00f0169c9e939b1816ed771eee00e27f2fcc517b819041460b9ef"
+    },
+    {
+      "file": "KAPA-3D/assets/AuditPage-BEZ4Wm6x.js",
+      "identical": true,
+      "sha256": "a085a103fa61fcb1f8403827b514c71866dacacdc3306cca27aa06604821c220"
+    },
+    {
+      "file": "KAPA-3D/assets/AuthScreen-COPOL3vN.js",
+      "identical": true,
+      "sha256": "ad0e5900be8ff29acb3ca29bd5beab1b684ff1c39af9f7deadb390b1a7bae370"
+    },
+    {
+      "file": "KAPA-3D/assets/OverviewPage-DPcROMII.js",
+      "identical": true,
+      "sha256": "bde1b942ad92f8be9e18ed21d3acc5cba1d80313e631438f5fe9c477fe52ead5"
+    },
+    {
+      "file": "KAPA-3D/assets/PartnersPage-Di_X93MK.js",
+      "identical": true,
+      "sha256": "3222134e3c498674cc650cdd8f3ef6cd0d973dffe6064e81ae401d6b92d300fe"
+    },
+    {
+      "file": "KAPA-3D/assets/PasswordPage-Csa3fH76.js",
+      "identical": true,
+      "sha256": "e61ce3b1c9ec9820e82a016a04f4edd8622d93354179e6bd690fcc01901f5a17"
+    },
+    {
+      "file": "KAPA-3D/assets/SettingsPage-Cr1cjd_O.js",
+      "identical": true,
+      "sha256": "c8b5ab4d8b80058da73a00f5ea192106e1fe635e7fddd90d4e696161f3ff093a"
+    },
+    {
+      "file": "KAPA-3D/assets/index-D40RmpEt.js",
+      "identical": true,
+      "sha256": "9fc288bc31fe9dc9b5a42de047e16a15d15fae505e9e4bf1d12c90eb2f54ab80"
+    },
+    {
+      "file": "KAPA-3D/assets/index-gBmhxO8M.css",
+      "identical": true,
+      "sha256": "f680bf2b1e4dcfe0685e50fdfaef272e755a485cf5daa2a7039f8ebb1f9aa482"
+    },
+    {
+      "file": "KAPA-3D/assets/lock-keyhole-BMZOO8yX.js",
+      "identical": true,
+      "sha256": "a7e78a93d805e1f37c4e2ff1f77dd19ec1bdb30027b1c8f8a1d30f3e81c2dfb2"
+    },
+    {
+      "file": "KAPA-3D/assets/schemas-BVqubF-W.js",
+      "identical": true,
+      "sha256": "dc0e311bad32f9dd9bc4e03a0203b164f9767812b5901a612ce1b83b18e598f8"
+    },
+    {
+      "file": "KAPA-3D/assets/shield-check-CODneoVW.js",
+      "identical": true,
+      "sha256": "69455878ce8780aad2d810a8919d07e1af44d08a5ff060b76e1db9adc0b22c9d"
+    },
+    {
+      "file": "KAPA-3D/favicon.svg",
+      "identical": true,
+      "sha256": "bd992b85b5319dceff4bf04e61b854bd26c2e86f1acae6b3cf6eeb3fccf5910e"
+    },
+    {
+      "file": "KAPA-3D/index.html",
+      "identical": true,
+      "sha256": "59a2578221599855af9c9fa0c88b3ae87086da7341d7c694969b1eff905013de"
+    }
+  ]
+}
