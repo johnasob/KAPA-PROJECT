@@ -1,3 +1,4 @@
+import { downloadExcel } from "../../lib/excel";
 import { useEffect, useState } from "react";
 import { Download, Printer } from "lucide-react";
 import { PageTitle, Notice } from "../../components/ui";
@@ -22,6 +23,10 @@ import { errorMessage, money } from "../../lib/format";
 type ReportRow = Record<string, string | number | null>;
 type Report = PageData<ReportRow> & { summary: Summary; generated_at: string };
 const kinds = [
+  { id: "deliveries", label: "Piezas: entregas, pagos y anticipos" },
+  { id: "installments", label: "Cuotas del periodo y tarjeta de crédito" },
+  { id: "experiments", label: "Pruebas e impresiones fallidas" },
+  { id: "opening", label: "Saldos iniciales actuales" },
   { id: "sales", label: "Ventas por periodo" },
   { id: "profitability", label: "Rentabilidad por pedido" },
   { id: "costs", label: "Costos por producto cotizado" },
@@ -36,6 +41,25 @@ const kinds = [
 ];
 const headers: Record<string, string> = {
   codigo: "Pedido",
+  unidades_entregadas: "Unidades entregadas",
+  unidades_sin_entregar: "Unidades pendientes de entrega",
+  entregado_por_cobrar: "Entregado por cobrar COP",
+  estado_pago: "Pago",
+  financiacion: "Financiación",
+  tipo: "Tipo",
+  impresora: "Impresora",
+  horas: "Horas",
+  costo_material: "Costo material COP",
+  estado_registro: "Registro",
+  cuota: "Cuota",
+  vencimiento: "Vencimiento",
+  capital_cuota: "Capital de cuota COP",
+  interes_cuota: "Interés COP",
+  pagado: "Pagado COP",
+  ingresos_iniciales: "Ingresos iniciales COP",
+  gastos_iniciales: "Gastos iniciales COP",
+  caja_inicial: "Caja inicial COP",
+  ultima_actualizacion: "Última actualización",
   cliente: "Cliente",
   producto: "Producto",
   estado: "Estado",
@@ -190,7 +214,7 @@ export function ReportsPage() {
       alive = false;
     };
   }, [kind, from, to, page, revision]);
-  async function exportReport(pdf: boolean) {
+  async function exportReport(pdf: boolean, excel = false) {
     if (exporting) return;
     setExporting(true);
     setError(null);
@@ -203,7 +227,7 @@ export function ReportsPage() {
         );
       } else {
         const keys = reportKeys(all.rows[0]);
-        downloadCsv(
+        await (excel ? downloadExcel : downloadCsv)(
           "KAPA-" + kind + "-" + from + "-" + to,
           keys.map((k) => headers[k] ?? k),
           all.rows.map((r) =>
@@ -257,6 +281,16 @@ export function ReportsPage() {
               setPage(0);
             }}
           />
+          <button
+            className="button primary"
+            disabled={exporting || !data?.rows.length}
+            onClick={() => {
+              void exportReport(false, true);
+            }}
+          >
+            <Download size={16} />
+            {exporting ? "Preparando…" : "Exportar Excel (.xlsx)"}
+          </button>
           <button
             className="button secondary"
             disabled={exporting || !data?.rows.length}

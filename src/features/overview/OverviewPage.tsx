@@ -1,3 +1,4 @@
+import { MonthlyBudget } from "../finance/MonthlyBudget";
 import { useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import {
@@ -31,12 +32,12 @@ import {
 import { money, dateTime } from "../../lib/format";
 import { PartnerCards } from "../finance/FinancePage";
 const colors = [
-  "#50773d",
-  "#ada1d1",
-  "#e2ae59",
-  "#74a29d",
-  "#b65c59",
-  "#8fb855",
+  "#701b34",
+  "#ad778b",
+  "#c79b57",
+  "#ab7e68",
+  "#a84454",
+  "#d1b28e",
 ];
 function ChartCard({
   title,
@@ -81,6 +82,20 @@ export function OverviewPage() {
           </Link>
         }
       />
+      <MonthlyBudget />
+      {!!data?.alerts.stale_orders?.length && (
+        <section className="panel month-budget">
+          <h2>Pedidos sin iniciar hace 3 días o más</h2>
+          {data.alerts.stale_orders.map((o) => (
+            <p key={o.id}>
+              <Link to={"/pedidos?pedido=" + o.id}>
+                K-{o.number} · {o.description} · {o.waiting_days} días esperando
+                ↗
+              </Link>
+            </p>
+          ))}
+        </section>
+      )}
       <div className="dashboard-filters">
         <DateRange
           from={from}
@@ -167,7 +182,7 @@ export function OverviewPage() {
                       name="Ventas cobradas"
                       type="monotone"
                       dataKey="sales"
-                      stroke="#50773d"
+                      stroke="#701b34"
                       strokeWidth={3}
                     />
                   </LineChart>
@@ -193,7 +208,7 @@ export function OverviewPage() {
                       isAnimationActive={false}
                       dataKey="income"
                       name="Ingresos"
-                      fill="#50773d"
+                      fill="#701b34"
                       radius={[4, 4, 0, 0]}
                     />
                     <Bar
@@ -226,8 +241,8 @@ export function OverviewPage() {
                       type="monotone"
                       dataKey="profit"
                       name="Utilidad"
-                      stroke="#8471ad"
-                      fill="#e3dcee"
+                      stroke="#8a4563"
+                      fill="#f3e1e5"
                     />
                   </AreaChart>
                 </ResponsiveContainer>
@@ -250,7 +265,7 @@ export function OverviewPage() {
                       isAnimationActive={false}
                       name="Unidades entregadas"
                       dataKey="quantity"
-                      fill="#50773d"
+                      fill="#701b34"
                       radius={[0, 4, 4, 0]}
                     />
                   </BarChart>
@@ -295,7 +310,7 @@ export function OverviewPage() {
                       isAnimationActive={false}
                       dataKey="orders"
                       name="Pedidos"
-                      fill="#e2ae59"
+                      fill="#c79b57"
                       radius={[4, 4, 0, 0]}
                     />
                   </BarChart>

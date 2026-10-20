@@ -5,17 +5,17 @@ Validado el 20 de octubre de 2026 en el entorno local de Codex con Node 24, Chro
 | Comprobación                                                                                              | Resultado                   |
 | --------------------------------------------------------------------------------------------------------- | --------------------------- |
 | TypeScript estricto y compilación de producción                                                           | Aprobados                   |
-| Vitest: configuración, registro, costos decimales, precios, CSV y enlaces                                 | 39 pruebas                  |
-| pgTAP: permisos, fundamentos, registro y operaciones                                                      | 177 pruebas                 |
+| Vitest: configuración, registro, costos decimales, precios, Excel/CSV y enlaces                           | 45 pruebas                  |
+| pgTAP: permisos, fundamentos, registro y operaciones                                                      | 252 pruebas                 |
 | Playwright: acceso, sesión, configuración, móvil y auditoría                                              | Aprobado                    |
 | Playwright: registro de tres campos, protección y aprobación de cuenta                                    | Aprobado                    |
 | Playwright: idempotencia, conflicto entre socios y recuperación por correo local                          | Aprobado                    |
 | Playwright: compra financiada → cotización → reserva → producción → cobros → deuda → liquidación → retiro | Aprobado                    |
 | Subida y descarga real de adjunto privado; rechazo de lectura anónima                                     | Aprobados                   |
-| CSV descargado y PDF generado por Chromium con filas reales del reporte                                   | Aprobados                   |
-| Once reportes y seis gráficos consultados desde el navegador                                              | Aprobados                   |
+| Excel/CSV descargados y PDF generado por Chromium con filas reales del reporte                            | Aprobados                   |
+| Quince reportes y seis gráficos consultados desde el navegador                                            | Aprobados                   |
 | Navegación por los ocho módulos desde móvil de 390 px sin desbordamiento de documento                     | Aprobada                    |
-| Total de recorridos Playwright                                                                            | 7                           |
+| Total de recorridos Playwright                                                                            | 9                           |
 | Instalación nueva, repetición y actualización con administrador y datos existentes                        | Aprobadas en bases aisladas |
 | Instalación parcial: rechazo y rollback completo                                                          | Aprobado                    |
 | Reinicio de Supabase con volúmenes conservados y Storage habilitado                                       | Aprobado                    |
@@ -43,3 +43,20 @@ El usuario informó que ya entra al sitio de Netlify y a su cuenta. Codex no tie
 La alerta de Microsoft Defender sobre el ZIP anterior sigue pendiente. Las pruebas funcionales y la auditoría de dependencias no son análisis antivirus. No se generó ni publicó un nuevo ZIP para esta entrega; [el informe anterior](download-review.md) mantiene la identificación de la muestra.
 
 Los límites de catálogos (1.000 opciones), exportación (50.000 filas), PDF por impresión y estimaciones continuas de cola están documentados en [arquitectura](architecture.md). No se implementaron modo oscuro, calendario laboral por turnos ni un servicio externo de PDF; no se presentan como funcionalidades existentes.
+
+## Casos adicionales de la actualización
+
+- Crédito con tarjeta y pago inicial cero sin caja negativa; identidad de financiación en compra y deuda.
+- Hora y media y cuarto de hora desde horas/minutos; extras con cantidad/precio y varias piezas sin catálogo.
+- Cotización editable con versión; orden estable de piezas y original conservado al convertir.
+- Edición de pedido, cantidades y precios, adición y retirada de piezas; protección de producción, entregas y cobros existentes.
+- Asignación de anticipos por pieza; entrega parcial pagada o a crédito; cartera entregada y cobro posterior.
+- Saldos iniciales independientes de caja, control de versión y actualización por PostgREST con safeupdate activo.
+- Conteo directo de stock con detección de cambios simultáneos; prueba/fallo sin venta y compensación que no puede ejecutarse por dos módulos.
+- Cuotas pagadas/pendientes y presupuesto después de capital/interés sin duplicar costos.
+- Eliminación visible con historial financiero conservado y protección de cartera.
+- Pedidos sin iniciar por más de tres días y retiro de esa alerta tras producir.
+- XLSX real descargado en Chromium; apertura de su contenido OpenXML en pruebas, importes numéricos, caracteres especiales y texto que parece fórmula sin fórmulas ejecutables.
+- Instalador sobre la versión operativa anterior, incluyendo cobro, compensación y nuevo cobro con el mismo timestamp; conserva el saldo y reconstruye asignaciones usando la auditoría. Repetición sin duplicar datos ni auditoría.
+
+El noveno recorrido conecta el frontend con la función de lectura de la versión anterior real, comprueba las instrucciones de actualización y recupera el espacio al restaurar el esquema vigente; no simula respuestas HTTP.

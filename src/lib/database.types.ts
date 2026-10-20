@@ -375,6 +375,7 @@ export type Database = {
           created_at: string
           created_by: string
           description: string
+          financing: string
           id: string
           installment_count: number
           monthly_payment: number
@@ -389,6 +390,7 @@ export type Database = {
           created_at?: string
           created_by: string
           description: string
+          financing?: string
           id?: string
           installment_count: number
           monthly_payment: number
@@ -403,6 +405,7 @@ export type Database = {
           created_at?: string
           created_by?: string
           description?: string
+          financing?: string
           id?: string
           installment_count?: number
           monthly_payment?: number
@@ -490,6 +493,7 @@ export type Database = {
           created_by: string
           delta_grams: number
           expense_amount: number
+          experiment_id: string | null
           id: string
           kind: string
           lot_id: string
@@ -504,6 +508,7 @@ export type Database = {
           created_by: string
           delta_grams: number
           expense_amount?: number
+          experiment_id?: string | null
           id?: string
           kind: string
           lot_id: string
@@ -518,6 +523,7 @@ export type Database = {
           created_by?: string
           delta_grams?: number
           expense_amount?: number
+          experiment_id?: string | null
           id?: string
           kind?: string
           lot_id?: string
@@ -528,6 +534,13 @@ export type Database = {
           reverses_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "inventory_movements_experiment_id_fkey"
+            columns: ["experiment_id"]
+            isOneToOne: false
+            referencedRelation: "print_experiments"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "inventory_movements_lot_id_fkey"
             columns: ["lot_id"]
@@ -659,6 +672,80 @@ export type Database = {
         }
         Relationships: []
       }
+      opening_balances: {
+        Row: {
+          cash_amount: number
+          effective_on: string
+          expense: number
+          income: number
+          notes: string
+          singleton: boolean
+          updated_at: string
+          updated_by: string | null
+          version: number
+        }
+        Insert: {
+          cash_amount?: number
+          effective_on: string
+          expense?: number
+          income?: number
+          notes?: string
+          singleton?: boolean
+          updated_at?: string
+          updated_by?: string | null
+          version?: number
+        }
+        Update: {
+          cash_amount?: number
+          effective_on?: string
+          expense?: number
+          income?: number
+          notes?: string
+          singleton?: boolean
+          updated_at?: string
+          updated_by?: string | null
+          version?: number
+        }
+        Relationships: []
+      }
+      order_deliveries: {
+        Row: {
+          created_at: string
+          created_by: string
+          delivered_on: string
+          id: string
+          line_id: string
+          notes: string
+          quantity: number
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          delivered_on: string
+          id?: string
+          line_id: string
+          notes?: string
+          quantity: number
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          delivered_on?: string
+          id?: string
+          line_id?: string
+          notes?: string
+          quantity?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "order_deliveries_line_id_fkey"
+            columns: ["line_id"]
+            isOneToOne: false
+            referencedRelation: "order_lines"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       order_files: {
         Row: {
           created_at: string
@@ -694,14 +781,56 @@ export type Database = {
           },
         ]
       }
+      order_line_payments: {
+        Row: {
+          amount: number
+          cash_entry_id: string
+          created_at: string
+          id: string
+          line_id: string
+        }
+        Insert: {
+          amount: number
+          cash_entry_id: string
+          created_at?: string
+          id?: string
+          line_id: string
+        }
+        Update: {
+          amount?: number
+          cash_entry_id?: string
+          created_at?: string
+          id?: string
+          line_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "order_line_payments_cash_entry_id_fkey"
+            columns: ["cash_entry_id"]
+            isOneToOne: false
+            referencedRelation: "cash_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_line_payments_line_id_fkey"
+            columns: ["line_id"]
+            isOneToOne: false
+            referencedRelation: "order_lines"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       order_lines: {
         Row: {
           cost_snapshot: Json
+          delivered_at: string | null
+          delivered_quantity: number
           description: string
           estimated_hours: number
           id: string
           material_snapshot: Json
           order_id: string
+          position: number
           printer_id: string
           product_id: string | null
           quantity: number
@@ -710,11 +839,14 @@ export type Database = {
         }
         Insert: {
           cost_snapshot: Json
+          delivered_at?: string | null
+          delivered_quantity?: number
           description: string
           estimated_hours: number
           id?: string
           material_snapshot: Json
           order_id: string
+          position?: number
           printer_id: string
           product_id?: string | null
           quantity: number
@@ -723,11 +855,14 @@ export type Database = {
         }
         Update: {
           cost_snapshot?: Json
+          delivered_at?: string | null
+          delivered_quantity?: number
           description?: string
           estimated_hours?: number
           id?: string
           material_snapshot?: Json
           order_id?: string
+          position?: number
           printer_id?: string
           product_id?: string | null
           quantity?: number
@@ -764,6 +899,7 @@ export type Database = {
           created_at: string
           created_by: string
           customer_id: string
+          deleted_at: string | null
           delivered_at: string | null
           deposit_percent: number
           description: string
@@ -786,6 +922,7 @@ export type Database = {
           created_at?: string
           created_by: string
           customer_id: string
+          deleted_at?: string | null
           delivered_at?: string | null
           deposit_percent: number
           description: string
@@ -808,6 +945,7 @@ export type Database = {
           created_at?: string
           created_by?: string
           customer_id?: string
+          deleted_at?: string | null
           delivered_at?: string | null
           deposit_percent?: number
           description?: string
@@ -986,6 +1124,53 @@ export type Database = {
         }
         Relationships: []
       }
+      print_experiments: {
+        Row: {
+          actual_hours: number
+          created_at: string
+          created_by: string
+          description: string
+          details: Json
+          id: string
+          kind: string
+          material_cost: number
+          printer_id: string | null
+          reversed_at: string | null
+        }
+        Insert: {
+          actual_hours?: number
+          created_at?: string
+          created_by: string
+          description: string
+          details: Json
+          id?: string
+          kind: string
+          material_cost: number
+          printer_id?: string | null
+          reversed_at?: string | null
+        }
+        Update: {
+          actual_hours?: number
+          created_at?: string
+          created_by?: string
+          description?: string
+          details?: Json
+          id?: string
+          kind?: string
+          material_cost?: number
+          printer_id?: string | null
+          reversed_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "print_experiments_printer_id_fkey"
+            columns: ["printer_id"]
+            isOneToOne: false
+            referencedRelation: "printers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       printers: {
         Row: {
           accumulated_hours: number
@@ -1140,6 +1325,7 @@ export type Database = {
           created_by: string
           description: string
           expense_amount: number
+          financing: string
           id: string
           lot_id: string | null
           paid_initial: number
@@ -1155,6 +1341,7 @@ export type Database = {
           created_by: string
           description: string
           expense_amount?: number
+          financing?: string
           id?: string
           lot_id?: string | null
           paid_initial: number
@@ -1170,6 +1357,7 @@ export type Database = {
           created_by?: string
           description?: string
           expense_amount?: number
+          financing?: string
           id?: string
           lot_id?: string | null
           paid_initial?: number
@@ -1210,6 +1398,7 @@ export type Database = {
           estimated_hours: number
           id: string
           material_snapshot: Json
+          position: number
           printer_id: string
           product_id: string | null
           quantity: number
@@ -1223,6 +1412,7 @@ export type Database = {
           estimated_hours: number
           id?: string
           material_snapshot: Json
+          position?: number
           printer_id: string
           product_id?: string | null
           quantity: number
@@ -1236,6 +1426,7 @@ export type Database = {
           estimated_hours?: number
           id?: string
           material_snapshot?: Json
+          position?: number
           printer_id?: string
           product_id?: string | null
           quantity?: number
@@ -1280,6 +1471,7 @@ export type Database = {
           number: number
           price_total: number
           status: string
+          version: number
         }
         Insert: {
           cost_total: number
@@ -1293,6 +1485,7 @@ export type Database = {
           number?: never
           price_total: number
           status?: string
+          version?: number
         }
         Update: {
           cost_total?: number
@@ -1306,6 +1499,7 @@ export type Database = {
           number?: never
           price_total?: number
           status?: string
+          version?: number
         }
         Relationships: [
           {

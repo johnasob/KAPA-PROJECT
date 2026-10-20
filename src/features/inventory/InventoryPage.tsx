@@ -1,3 +1,4 @@
+import { Experiments } from "./Experiments";
 import { useState } from "react";
 import { History, Plus, RefreshCw, Undo2 } from "lucide-react";
 import { PageTitle, Notice } from "../../components/ui";
@@ -11,6 +12,7 @@ import {
   Tabs,
   Toolbar,
   moneyFields,
+  financingField,
   optionList,
   useCatalog,
   type Field,
@@ -82,7 +84,7 @@ export function InventoryPage() {
         },
         {
           name: "paid",
-          label: "Pago inicial (COP)",
+          label: "Pago inicial con dinero propio (COP)",
           type: "number",
           min: 0,
           required: true,
@@ -100,6 +102,7 @@ export function InventoryPage() {
           default: "Compra de filamento",
           required: true,
         },
+        financingField,
         ...moneyFields.map((f) => ({
           ...f,
           default: f.name === "date" ? today() : f.default,
@@ -136,6 +139,30 @@ export function InventoryPage() {
           name: "allow_negative_cash",
           label:
             "Autorizo expresamente caja negativa si el pago excede el dinero disponible.",
+        },
+      ],
+    });
+  const count = (lot: Lot) =>
+    setForm({
+      title: "Modificar filamento actual",
+      action: "inventory_count",
+      extra: { lot_id: lot.id, previous_grams: String(lot.on_hand_grams) },
+      description:
+        "Escribe el peso físico actual del rollo. El ajuste queda registrado y respeta los gramos reservados.",
+      fields: [
+        {
+          name: "on_hand_grams",
+          label: "Filamento actual (g)",
+          type: "number",
+          min: 0,
+          required: true,
+          default: String(lot.on_hand_grams),
+        },
+        {
+          name: "reason",
+          label: "Motivo del conteo",
+          required: true,
+          type: "textarea",
         },
       ],
     });
@@ -188,6 +215,7 @@ export function InventoryPage() {
         }
       />
       <CatalogWarning catalog={catalog.data} />
+      <Experiments catalog={catalog.data ?? undefined} />
       <div className="business-stats">
         <Stat
           label="Existencias físicas · página"
@@ -295,6 +323,16 @@ export function InventoryPage() {
                   <h2>
                     {l.kind} · {l.color}
                   </h2>
+                  {l.financing && l.financing !== "cash" && (
+                    <p>
+                      <span className="pill">
+                        {l.financing === "credit_card"
+                          ? "Tarjeta de crédito"
+                          : "Crédito con proveedor"}
+                      </span>{" "}
+                      · Saldo: {money(l.debt_balance ?? 0)}
+                    </p>
+                  )}
                   <strong className="stock-amount">
                     {Number(l.available_grams).toLocaleString("es-CO")}{" "}
                     <small>g libres</small>
@@ -322,6 +360,12 @@ export function InventoryPage() {
                     </div>
                   </dl>
                   <div className="card-actions">
+                    <button
+                      className="button secondary"
+                      onClick={() => count(l)}
+                    >
+                      Modificar cantidad actual
+                    </button>
                     <button
                       className="button secondary"
                       onClick={() => adjust(l)}

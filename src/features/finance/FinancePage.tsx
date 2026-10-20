@@ -1,3 +1,5 @@
+import { MonthlyBudget } from "./MonthlyBudget";
+import { OpeningBalances } from "./OpeningBalances";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { ArrowDownLeft, ArrowUpRight, Plus, Undo2 } from "lucide-react";
@@ -12,6 +14,7 @@ import {
   Tabs,
   Toolbar,
   moneyFields,
+  financingField,
   optionList,
   useCatalog,
   type Field,
@@ -512,6 +515,8 @@ export function FinancePage() {
           </Link>
         }
       />
+      <MonthlyBudget />
+      <OpeningBalances />
       <Tabs
         items={[
           { id: "cash", label: "Caja, ingresos y gastos" },
@@ -586,11 +591,12 @@ export function FinancePage() {
                     },
                     {
                       name: "paid",
-                      label: "Pago inicial (COP)",
+                      label: "Pago inicial con dinero propio (COP)",
                       type: "number",
                       min: 0,
                       required: true,
                     },
+                    financingField,
                     ...paymentFields,
                     ...creditFields,
                     authField,
@@ -831,6 +837,13 @@ export function FinancePage() {
                       <small>{d.supplier_name}</small>
                     </div>
                     <h2>{d.description}</h2>
+                    <span className="pill">
+                      {d.financing === "credit_card"
+                        ? "Tarjeta de crédito"
+                        : d.financing === "loan"
+                          ? "Préstamo"
+                          : "Crédito con proveedor"}
+                    </span>
                     <dl className="resource-details">
                       <div>
                         <dt>Capital inicial</dt>

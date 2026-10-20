@@ -9,6 +9,10 @@ import { useWorkspace } from "../../lib/WorkspaceProvider";
 type Audit = Database["public"]["Tables"]["audit_log"]["Row"];
 const size = 20;
 const names: Record<string, string> = {
+  opening_balances: "Saldos iniciales",
+  order_line_payments: "Pago asignado a pieza",
+  order_deliveries: "Entrega de piezas",
+  print_experiments: "Prueba o impresión fallida",
   inventory_lots: "Lotes de filamento",
   inventory_movements: "Movimiento de material",
   material_reservations: "Reserva de material",
@@ -44,6 +48,15 @@ const operations: Record<string, string> = {
   DELETE: "Eliminación",
 };
 const fields: Record<string, string> = {
+  financing: "Forma de financiación",
+  quantity: "Cantidad de piezas",
+  delivered_quantity: "Unidades entregadas",
+  unit_price: "Precio por unidad",
+  income: "Ingresos iniciales",
+  expense: "Gastos iniciales",
+  cash_amount: "Caja inicial",
+  effective_on: "Fecha inicial",
+  deleted_at: "Eliminado de las vistas",
   name: "Nombre",
   description: "Descripción",
   status: "Estado",
@@ -91,7 +104,22 @@ function displayValue(field: string, value: Json | undefined) {
   if (field === "active") return value ? "Habilitado" : "Deshabilitado";
   if (field === "role")
     return value === "admin" ? "Administrador" : String(value);
-  if (field.endsWith("_cost")) return money(Number(value));
+  if (field === "financing")
+    return (
+      (
+        {
+          cash: "Contado",
+          supplier_credit: "Crédito con proveedor",
+          credit_card: "Tarjeta de crédito",
+          loan: "Préstamo",
+        } as Record<string, string>
+      )[String(value)] ?? String(value)
+    );
+  if (
+    ["unit_price", "income", "expense", "cash_amount"].includes(field) ||
+    field.endsWith("_cost")
+  )
+    return money(Number(value));
   if (field.endsWith("_grams")) return `${value} g`;
   if (field === "default_deposit_percent") return `${value} %`;
   if (field === "share_basis_points") return `${Number(value) / 100} %`;

@@ -2,7 +2,7 @@
 
 **Descarga suspendida:** el ZIP fue retirado de la rama principal tras una alerta de Microsoft Defender `Trojan:Script/Ulthar.A!ml`. La detección sigue pendiente de resolver. Consulta el [informe de revisión](docs/download-review.md) antes de descargar o publicar una compilación. No desactives la protección para abrir el paquete.
 
-Aplicación web para el negocio colombiano de impresión 3D de John y Sebas. Incluye inventario por lotes, reservas, impresoras, mantenimiento, costos decimales, cotizaciones con costos conservados, clientes, pedidos, producción real, cobros parciales, caja, compras financiadas, deudas, liquidaciones 50/50, indicadores, gráficos y reportes CSV/PDF. Todos los datos operativos se guardan en Supabase; no se crean saldos, existencias o ganancias de demostración.
+Aplicación web para el negocio colombiano de impresión 3D de John y Sebas. Incluye inventario por lotes, reservas, impresoras, mantenimiento, costos decimales, cotizaciones con costos conservados, clientes, pedidos, producción real, cobros parciales, caja, compras financiadas, deudas, liquidaciones 50/50, indicadores, gráficos y reportes Excel/CSV/PDF. La actualización incluye identidad vinotinto y crema, tarjeta de crédito, presupuesto mensual después de cuotas, piezas personalizadas, tiempo en horas/minutos, insumos detallados, edición de cotizaciones y pedidos, entregas y cobros por pieza, saldos iniciales y pruebas/fallos sin venta. Todos los datos operativos se guardan en Supabase; no se crean saldos, existencias o ganancias de demostración.
 
 ## Requisitos
 
@@ -60,14 +60,14 @@ Las bases de datos locales se conservan en volúmenes de Docker. `npm run db:sto
 ## Validación
 
 ```sh
-npm test                 # Configuración, registro, costos decimales y CSV seguro
+npm test                 # Configuración, registro, costos decimales y exportaciones Excel/CSV seguras
 npm run build            # TypeScript estricto y bundle de producción
 npm run db:test          # pgTAP: permisos, stock, costos, cobros, caja, deuda y 50/50
 npm run test:e2e         # Chromium + Auth/PostgREST/Storage/PostgreSQL reales, solo base local vacía
 npm run db:test:installer # Instalación nueva, actualización y repetición en bases temporales
 ```
 
-E2E requiere Supabase local iniciado. Usa Chromium del sistema (`/usr/bin/chromium` en cloud); en otro sistema configura `CHROMIUM_PATH` o instala el navegador de Playwright. El runner inicia su propio frontend en el puerto 5174 con la conexión pública local, incluso si las variables normales apuntan al proyecto alojado. Se niega a usar una base externa o perfiles de socios ya asignados. Crea cuentas temporales y valida registro, aprobación, sesión, configuración, auditoría, bloqueo de terceros, el flujo completo de compra a liquidación, adjuntos privados, CSV/PDF e interfaz móvil. Restaura los parámetros y elimina sus cuentas. Las pruebas SQL usan transacciones revertidas. No ejecutar E2E contra producción.
+E2E requiere Supabase local iniciado. Usa Chromium del sistema (`/usr/bin/chromium` en cloud); en otro sistema configura `CHROMIUM_PATH` o instala el navegador de Playwright. El runner inicia su propio frontend en el puerto 5174 con la conexión pública local, incluso si las variables normales apuntan al proyecto alojado. Se niega a usar una base externa o perfiles de socios ya asignados. Crea cuentas temporales y valida registro, aprobación, sesión, configuración, auditoría, bloqueo de terceros, el flujo completo de compra a liquidación, adjuntos privados, entregas parciales, tarjeta, saldos iniciales, Excel/CSV/PDF e interfaz móvil. Restaura los parámetros y elimina sus cuentas. Las pruebas SQL usan transacciones revertidas. No ejecutar E2E contra producción.
 
 `npm run db:installer` regenera el instalador SQL sin crear un ZIP. `npm run build:deploy` genera el frontend de producción. La herramienta local `npm run release` sigue disponible para empaquetado técnico con Python 3, pero los ZIP están ignorados por Git y su distribución permanece suspendida por la alerta pendiente; no se ha usado para entregar esta actualización.
 

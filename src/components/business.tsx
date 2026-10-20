@@ -37,6 +37,19 @@ export const methods = [
   { value: "tarjeta", label: "Tarjeta" },
   { value: "otro", label: "Otro" },
 ];
+export const financingField: Field = {
+  name: "financing",
+  label: "Forma de compra",
+  type: "select",
+  default: "cash",
+  required: true,
+  options: [
+    { value: "cash", label: "Contado" },
+    { value: "supplier_credit", label: "Crédito con proveedor" },
+    { value: "credit_card", label: "Tarjeta de crédito" },
+  ],
+  hint: "El crédito queda como deuda. Solo el pago con dinero propio sale de caja; escribe 0 si financias toda la compra.",
+};
 export const moneyFields: Field[] = [
   {
     name: "method",
@@ -162,6 +175,8 @@ export function OperationForm({
   const {
     register,
     handleSubmit,
+    watch,
+    setValue,
     formState: { errors },
   } = useForm<Record<string, string>>({
     resolver: zodResolver(schema),
@@ -169,6 +184,15 @@ export function OperationForm({
       fields.map((f) => [f.name, initial[f.name] ?? f.default ?? ""]),
     ),
   });
+  const financing = watch("financing");
+  const isPurchase = [
+    "lot_purchase",
+    "printer_save",
+    "purchase_create",
+  ].includes(action);
+  useEffect(() => {
+    if (isPurchase && financing === "credit_card") setValue("paid", "0");
+  }, [financing, isPurchase, setValue]);
   async function submit(values: Record<string, string>) {
     const normalized = { ...values };
     for (const f of fields)

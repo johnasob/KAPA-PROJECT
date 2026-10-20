@@ -855,7 +855,7 @@ test("operación completa real: compra financiada, cotización, reservas, produc
     const cleanup = `delete from public.advance_compensations where advance_id in(select a.id from public.partner_advances a join public.cash_entries c on c.id=a.cash_entry_id where c.created_by='${uid}');
 delete from public.partner_allocations where settlement_id in(select id from public.settlements where created_by='${uid}');delete from public.settlements where created_by='${uid}';
 delete from public.partner_advances where cash_entry_id in(select id from public.cash_entries where created_by='${uid}');delete from public.partner_withdrawals where cash_entry_id in(select id from public.cash_entries where created_by='${uid}');
-delete from public.cash_entries where created_by='${uid}';delete from public.debt_payments where created_by='${uid}';delete from public.debt_installments where debt_id in(select id from public.debts where created_by='${uid}');delete from public.debts where created_by='${uid}';delete from public.purchases where created_by='${uid}';
+delete from public.order_line_payments where cash_entry_id in(select id from public.cash_entries where created_by='${uid}');delete from public.order_deliveries where created_by='${uid}';delete from public.cash_entries where created_by='${uid}';delete from public.debt_payments where created_by='${uid}';delete from public.debt_installments where debt_id in(select id from public.debts where created_by='${uid}');delete from public.debts where created_by='${uid}';delete from public.purchases where created_by='${uid}';
 delete from public.inventory_movements where created_by='${uid}';delete from public.production_runs where created_by='${uid}';delete from public.material_reservations where order_id in(select id from public.orders where created_by='${uid}');delete from public.order_files where created_by='${uid}';delete from public.order_lines where order_id in(select id from public.orders where created_by='${uid}');delete from public.orders where created_by='${uid}';delete from public.quote_lines where quote_id in(select id from public.quotes where created_by='${uid}');delete from public.quotes where created_by='${uid}';delete from public.maintenance_records where created_by='${uid}';
 delete from public.inventory_lots where material_id in(select id from public.materials where brand='${brand}');delete from public.materials where brand='${brand}';delete from public.printers where name='${printerName}';delete from public.customers where name in ('${customerName}','${inlineCustomerName}');`;
     execFileSync(
@@ -886,4 +886,399 @@ delete from public.inventory_lots where material_id in(select id from public.mat
     });
     if (restored.error) throw restored.error;
   }
+});
+
+test("marca, tarjeta sin caja negativa, saldos iniciales, minutos, insumos, edición y entregas parciales con Excel", async ({
+  page,
+}) => {
+  test.setTimeout(180000);
+  const john = client();
+  const signed = await john.auth.signInWithPassword({
+    email: email.john,
+    password,
+  });
+  if (signed.error) throw signed.error;
+  const uid = signed.data.user.id,
+    tag = "Refinamiento " + run,
+    printerId = randomUUID(),
+    customerId = randomUUID();
+  const opening = await admin.from("opening_balances").select("*").single();
+  if (opening.error) throw opening.error;
+  const settings = await john.from("business_settings").select("*").single();
+  if (settings.error) throw settings.error;
+  async function op(
+    action: string,
+    data: Database["public"]["Functions"]["business_operate"]["Args"]["p_data"],
+  ) {
+    const r = await john.rpc("business_operate", {
+      p_action: action,
+      p_data: data,
+      p_request_id: randomUUID(),
+    });
+    if (r.error) throw r.error;
+    return r.data;
+  }
+  const dialog = (name: string) =>
+    page.getByRole("dialog", { name, exact: true });
+  async function save(name: string, button = "Guardar operación") {
+    const d = dialog(name);
+    await d.getByRole("button", { name: button, exact: true }).click();
+    await expect(d).not.toBeVisible();
+  }
+  async function go(label: string) {
+    await page.getByRole("link", { name: label, exact: true }).click();
+  }
+  try {
+    const updated = await john.rpc("update_business_settings", {
+      p_changes: { energy_kwh_cost: 0, labor_hour_cost: 0 },
+      p_expected_version: settings.data.version,
+      p_request_id: randomUUID(),
+    });
+    if (updated.error) throw updated.error;
+    await op("printer_save", {
+      id: printerId,
+      name: tag,
+      model: "A1",
+      acquisition_cost: 0,
+      useful_hours: 1000,
+      power_kw: 0,
+    });
+    await op("customer_save", { id: customerId, name: tag });
+    await login(page);
+    await go("Finanzas");
+    await page
+      .getByRole("button", { name: "Modificar saldos iniciales", exact: true })
+      .click();
+    let d = dialog("Modificar saldos iniciales");
+    await d.getByLabel(/^Ingresos iniciales/).fill("2000");
+    await d.getByLabel(/^Gastos iniciales/).fill("1000");
+    await d.getByLabel(/^Dinero en caja/).fill("1000");
+    await d.getByLabel(/^Origen o motivo/).fill("Datos anteriores de prueba");
+    await save("Modificar saldos iniciales");
+    await go("Inventario");
+    await page
+      .getByRole("button", { name: "Comprar filamento", exact: true })
+      .click();
+    d = dialog("Comprar filamento");
+    await d.getByLabel(/^Marca/).fill(tag);
+    await d.getByLabel(/^Color/).fill("Vinotinto");
+    await d.getByLabel(/^Costo total/).fill("90000");
+    await d.getByLabel(/^Forma de compra/).selectOption("credit_card");
+    await expect(d.getByLabel(/^Pago inicial/)).toHaveValue("0");
+    await d.getByLabel(/^Número de cuotas/).fill("3");
+    const date = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "America/Bogota",
+    }).format(new Date());
+    await d.getByLabel(/^Primer vencimiento/).fill(date);
+    await save("Comprar filamento");
+    const lot = await admin
+      .from("inventory_lots")
+      .select("id,on_hand_grams,materials!inner(brand)")
+      .eq("materials.brand", tag)
+      .single();
+    if (lot.error) throw lot.error;
+    const cash = await john.rpc("business_read", { p_section: "cash" });
+    expect(
+      (cash.data as unknown as { summary: { cash: number } }).summary.cash,
+    ).toBe(1000);
+    await expect(
+      page.getByText("Tarjeta de crédito", { exact: true }),
+    ).toBeVisible();
+    await page
+      .getByRole("button", { name: "Modificar cantidad actual", exact: true })
+      .click();
+    d = dialog("Modificar filamento actual");
+    await d.getByLabel(/^Filamento actual/).fill("980");
+    await d.getByLabel(/^Motivo/).fill("Conteo físico verificado");
+    await save("Modificar filamento actual");
+    await page
+      .getByRole("button", { name: "Registrar prueba o fallo", exact: true })
+      .click();
+    d = dialog("Registrar prueba o impresión fallida");
+    await d.getByLabel("Descripción", { exact: true }).fill(tag);
+    await d.getByLabel(/^Impresora/).selectOption(printerId);
+    await d.getByLabel("Minutos", { exact: true }).fill("30");
+    await d.getByLabel(/^Rollo/).selectOption(lot.data.id);
+    await d.getByLabel(/^Gramos consumidos/).fill("2");
+    await save(
+      "Registrar prueba o impresión fallida",
+      "Guardar consumo sin venta",
+    );
+    expect(
+      (
+        await admin
+          .from("inventory_lots")
+          .select("on_hand_grams")
+          .eq("id", lot.data.id)
+          .single()
+      ).data?.on_hand_grams,
+    ).toBe(978);
+    await go("Costos y cotizaciones");
+    await page
+      .getByRole("button", { name: "Nueva cotización", exact: true })
+      .click();
+    d = dialog("Nueva cotización");
+    await d.getByLabel(/^Cliente/).selectOption(customerId);
+    await d.getByLabel(/^Descripción general/).fill(tag);
+    let piece = d.locator(".quote-line-editor").nth(0);
+    await piece
+      .getByLabel(/^Descripción del producto/)
+      .fill("Pieza NFC personalizada");
+    await piece.getByLabel(/^Cantidad/).fill("2");
+    await piece.getByLabel(/^Impresora/).selectOption(printerId);
+    await piece.getByLabel(/^Horas de impresión/).fill("1");
+    await piece.getByLabel("Minutos", { exact: true }).fill("30");
+    await piece.getByLabel(/^Rollo/).selectOption(lot.data.id);
+    await piece.getByLabel(/^Pieza \(g\)/).fill("10");
+    await piece
+      .getByRole("button", { name: "Agregar insumo", exact: true })
+      .click();
+    await piece.getByLabel("Insumo", { exact: true }).fill("Chip NFC");
+    await piece.getByLabel(/^Costo unitario del insumo/).fill("500");
+    await d
+      .getByRole("button", { name: "Agregar producto", exact: true })
+      .click();
+    piece = d.locator(".quote-line-editor").nth(1);
+    await piece
+      .getByLabel(/^Descripción del producto/)
+      .fill("Pieza crema personalizada");
+    await piece.getByLabel(/^Impresora/).selectOption(printerId);
+    await piece.getByLabel(/^Horas de impresión/).fill("0");
+    await piece.getByLabel("Minutos", { exact: true }).fill("15");
+    await piece.getByLabel(/^Rollo/).selectOption(lot.data.id);
+    await piece.getByLabel(/^Pieza \(g\)/).fill("5");
+    await save("Nueva cotización", "Guardar cotización");
+    let quote = await admin
+      .from("quotes")
+      .select("*")
+      .eq("description", tag)
+      .single();
+    if (quote.error) throw quote.error;
+    expect(quote.data.price_total).toBe(9750);
+    await page
+      .getByRole("button", { name: "Editar cotización", exact: true })
+      .click();
+    d = dialog("Editar cotización");
+    await expect(
+      d
+        .locator(".quote-line-editor")
+        .nth(0)
+        .getByLabel("Minutos", { exact: true }),
+    ).toHaveValue("30");
+    await d.getByLabel(/^Descripción general/).fill(tag + " editada");
+    await save("Editar cotización", "Guardar cotización");
+    await page
+      .getByRole("button", { name: "Convertir en pedido", exact: true })
+      .click();
+    d = dialog("Crear pedido desde cotización");
+    await d.getByLabel(/^Fecha comprometida/).fill("2030-03-01T12:00");
+    await save("Crear pedido desde cotización");
+    const order = await admin
+      .from("orders")
+      .select("*")
+      .eq("customer_id", customerId)
+      .single();
+    if (order.error) throw order.error;
+    const lines = await admin
+      .from("order_lines")
+      .select("*")
+      .eq("order_id", order.data.id);
+    if (lines.error) throw lines.error;
+    const line = lines.data.find(
+      (l) => l.description === "Pieza NFC personalizada",
+    )!;
+    await op("order_update", {
+      order_id: order.data.id,
+      version: order.data.version,
+      status: "confirmed",
+      confirm_without_deposit: true,
+    });
+    await op("production_create", {
+      line_id: line.id,
+      good_units: 1,
+      hours: "0.75",
+      materials: [{ lot_id: lot.data.id, piece_grams: "10" }],
+      extra_items: [{ description: "NFC", quantity: 1, unit_cost: 500 }],
+    });
+    await page.locator(".order-card").filter({ hasText: tag }).click();
+    await page
+      .getByRole("button", { name: "Editar pedido", exact: true })
+      .click();
+    d = dialog("Editar pedido");
+    await d.getByLabel(/^Descripción del pedido/).fill(tag + " final");
+    await save("Editar pedido");
+    const item = page
+      .locator(".order-line-list > div")
+      .filter({ hasText: "Pieza NFC personalizada" });
+    await item
+      .getByRole("button", { name: "Entregar / corregir entrega", exact: true })
+      .click();
+    d = dialog("Entrega de piezas");
+    await d.getByLabel(/^Total de unidades entregadas/).fill("1");
+    await d.getByLabel(/^Autorizo entregar/).check();
+    await save("Entrega de piezas");
+    await expect(
+      item.getByText("1/2 entregadas", { exact: true }),
+    ).toBeVisible();
+    await page
+      .getByRole("dialog")
+      .getByRole("button", { name: "Cerrar formulario", exact: true })
+      .click();
+    await page
+      .getByRole("tab", { name: "Entregado por cobrar", exact: true })
+      .click();
+    await expect(
+      page.locator(".order-card").filter({ hasText: tag + " final" }),
+    ).toBeVisible();
+    await go("Reportes");
+    await page.locator(".report-controls select").selectOption("deliveries");
+    const download = page.waitForEvent("download");
+    await page
+      .getByRole("button", { name: "Exportar Excel (.xlsx)", exact: true })
+      .click();
+    const file = await download;
+    expect(file.suggestedFilename()).toMatch(/\.xlsx$/);
+    const path = await file.path();
+    if (!path) throw Error("Sin XLSX descargado");
+    const fs = await import("node:fs");
+    const bytes = fs.readFileSync(path);
+    expect(bytes.subarray(0, 2).toString()).toBe("PK");
+    for (const [kind, header] of [
+      ["installments", "Financiación"],
+      ["experiments", "Tipo"],
+      ["opening", "Ingresos iniciales COP"],
+    ]) {
+      await page.locator(".report-controls select").selectOption(kind);
+      await expect(
+        page.getByRole("columnheader", { name: header, exact: true }),
+      ).toBeVisible();
+    }
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.reload();
+    await expect(
+      page.getByRole("heading", { name: "Todo a la vista.", exact: true }),
+    ).toBeVisible();
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+    ).toBe(true);
+    await page.screenshot({
+      path: "/tmp/kapa-vinotinto-mobile.png",
+      fullPage: true,
+    });
+    await page.setViewportSize({ width: 1440, height: 1000 });
+    await page.goto("/finanzas");
+    await expect(page.getByRole("heading", { name: /Este mes/ })).toBeVisible();
+    await page.screenshot({
+      path: "/tmp/kapa-vinotinto-finanzas.png",
+      fullPage: true,
+    });
+  } finally {
+    const cleanup = `delete from public.order_line_payments where cash_entry_id in(select id from public.cash_entries where created_by='${uid}');delete from public.order_deliveries where created_by='${uid}';delete from public.cash_entries where created_by='${uid}';delete from public.debt_payments where created_by='${uid}';delete from public.debt_installments where debt_id in(select id from public.debts where created_by='${uid}');delete from public.debts where created_by='${uid}';delete from public.purchases where created_by='${uid}';delete from public.inventory_movements where created_by='${uid}';delete from public.print_experiments where created_by='${uid}';delete from public.production_runs where created_by='${uid}';delete from public.material_reservations where order_id in(select id from public.orders where created_by='${uid}');delete from public.order_lines where order_id in(select id from public.orders where created_by='${uid}');delete from public.orders where created_by='${uid}';delete from public.quote_lines where quote_id in(select id from public.quotes where created_by='${uid}');delete from public.quotes where created_by='${uid}';delete from public.inventory_lots where material_id in(select id from public.materials where brand='${tag}');delete from public.materials where brand='${tag}';delete from public.printers where id='${printerId}';delete from public.customers where id='${customerId}';update public.opening_balances set income=${opening.data.income},expense=${opening.data.expense},cash_amount=${opening.data.cash_amount},effective_on='${opening.data.effective_on}',notes='',updated_by=null,version=version+1;`;
+    execFileSync(
+      "docker",
+      [
+        "exec",
+        "-i",
+        "supabase_db_KAPA-PROJECT",
+        "psql",
+        "-U",
+        "postgres",
+        "-d",
+        "postgres",
+        "-v",
+        "ON_ERROR_STOP=1",
+      ],
+      { input: cleanup, stdio: ["pipe", "ignore", "pipe"] },
+    );
+    const current = await john
+      .from("business_settings")
+      .select("version")
+      .single();
+    if (current.error) throw current.error;
+    const restore = await john.rpc("update_business_settings", {
+      p_changes: {
+        energy_kwh_cost: settings.data.energy_kwh_cost,
+        labor_hour_cost: settings.data.labor_hour_cost,
+      },
+      p_expected_version: current.data.version,
+      p_request_id: randomUUID(),
+    });
+    if (restore.error) throw restore.error;
+  }
+});
+
+test("una base anterior muestra la actualización necesaria y recupera el espacio al actualizar", async ({
+  page,
+}) => {
+  const { readFileSync } = await import("node:fs");
+  const old = readFileSync(
+      "supabase/migrations/20261021000100_operations.sql",
+      "utf8",
+    ),
+    current = readFileSync(
+      "supabase/migrations/20261022000100_workflow_refinements.sql",
+      "utf8",
+    );
+  function definition(source: string, prefix: string) {
+    const start = source.indexOf(prefix);
+    const end = source.indexOf("end $$;", start) + 7;
+    return (
+      source
+        .slice(start, end)
+        .replace("create function", "create or replace function") +
+      "\nnotify pgrst,'reload schema';"
+    );
+  }
+  function sql(text: string) {
+    execFileSync(
+      "docker",
+      [
+        "exec",
+        "-i",
+        "supabase_db_KAPA-PROJECT",
+        "psql",
+        "-U",
+        "postgres",
+        "-d",
+        "postgres",
+        "-v",
+        "ON_ERROR_STOP=1",
+      ],
+      { input: text, stdio: ["pipe", "ignore", "pipe"] },
+    );
+  }
+  try {
+    sql(definition(old, "create function public.business_read("));
+    await login(page);
+    await expect(
+      page.getByRole("heading", {
+        name: "Actualiza KAPA en Supabase",
+        exact: true,
+      }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("link", {
+        name: "Abrir SQL de actualización",
+        exact: true,
+      }),
+    ).toHaveAttribute("href", /KAPA-3D-instalacion.sql$/);
+    await expect(
+      page.getByRole("link", { name: "Costos y cotizaciones", exact: true }),
+    ).toHaveCount(0);
+  } finally {
+    sql(
+      definition(current, "create or replace function public.business_read("),
+    );
+  }
+  await page
+    .getByRole("button", {
+      name: "Ya ejecuté el SQL · Volver a intentar",
+      exact: true,
+    })
+    .click();
+  await expect(
+    page.getByRole("heading", { name: "Hola, John.", exact: true }),
+  ).toBeVisible();
 });

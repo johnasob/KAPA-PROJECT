@@ -1,3 +1,4 @@
+import { AddPiece } from "./AddPiece";
 import { useEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import {
@@ -32,6 +33,7 @@ import {
 } from "../../components/business";
 import {
   categoryNames,
+  piecePayments,
   lotName,
   printerStates,
   statusNames,
@@ -83,6 +85,10 @@ function ProductionComposer({
       ...inputs,
       printer_id: line.printer_id,
       hours: new Decimal(line.estimated_hours).times(qty).toString(),
+      extra_items: (inputs.extra_items ?? []).map((it) => ({
+        ...it,
+        quantity: new Decimal(it.quantity).times(qty).toString(),
+      })),
       materials: (line.material_snapshot as unknown as CostMaterial[]).map(
         (m) => ({
           ...m,
@@ -357,6 +363,9 @@ function OrderDetails({ id, onClose }: { id: string; onClose: () => void }) {
     operation = useOperation();
   const order = data?.rows[0];
   const [mode, setMode] = useState<
+      | "edit"
+      | "delete"
+      | "add"
       | "payment"
       | "update"
       | "reserve"
@@ -365,6 +374,10 @@ function OrderDetails({ id, onClose }: { id: string; onClose: () => void }) {
       | "priority"
       | null
     >(null),
+    [piece, setPiece] = useState<{
+      line: Order["lines"][number];
+      action: "edit" | "deliver" | "remove";
+    } | null>(null),
     [reverse, setReverse] = useState<string | null>(null),
     [fileError, setFileError] = useState<string | null>(null),
     [uploading, setUploading] = useState(false);
@@ -489,8 +502,23 @@ function OrderDetails({ id, onClose }: { id: string; onClose: () => void }) {
             Registrar cobro
           </button>
         )}
+        <button
+          className="text-button text-danger"
+          onClick={() => setMode("delete")}
+        >
+          Eliminar pedido
+        </button>
         {!closed && (
           <>
+            <button
+              className="button secondary"
+              onClick={() => setMode("edit")}
+            >
+              Editar pedido
+            </button>
+            <button className="button secondary" onClick={() => setMode("add")}>
+              Agregar pieza personalizada
+            </button>
             <button
               className="button secondary"
               onClick={() => setMode("update")}
@@ -525,15 +553,61 @@ function OrderDetails({ id, onClose }: { id: string; onClose: () => void }) {
         )}
       </div>
       <div className="order-line-list">
-        {order.lines.map((l) => (
-          <div key={l.id}>
-            <strong>{l.description}</strong>
-            <p>
-              {l.produced} de {l.quantity} unidades producidas · Estimado:{" "}
-              {l.estimated_hours} h/unidad · {money(l.unit_price)} / unidad
-            </p>
-          </div>
-        ))}
+        {order.lines.map((l) => {
+          const payment = piecePayments(l);
+          return (
+            <div key={l.id}>
+              <strong>{l.description}</strong>
+              <p>
+                {l.produced} de {l.quantity} unidades producidas · Estimado:{" "}
+                {l.estimated_hours} h/unidad · {money(l.unit_price)} / unidad
+              </p>
+              <div className="piece-progress">
+                <span>
+                  {l.delivered_quantity}/{l.quantity} entregadas
+                </span>
+                <span>
+                  {payment.paidInFull
+                    ? "Pagada"
+                    : l.paid > 0
+                      ? "Con anticipo"
+                      : "Sin anticipo"}{" "}
+                  · {money(l.paid)} recibidos
+                </span>
+                <span>
+                  {payment.paidUnits}/{l.quantity} unidades cubiertas ·
+                  Pendiente: {money(payment.balance)}
+                </span>
+              </div>
+              <div className="card-actions">
+                {order.status !== "cancelled" && (
+                  <button
+                    className="button secondary"
+                    onClick={() => setPiece({ line: l, action: "deliver" })}
+                  >
+                    Entregar / corregir entrega
+                  </button>
+                )}
+                {!closed && (
+                  <>
+                    <button
+                      className="text-button"
+                      onClick={() => setPiece({ line: l, action: "edit" })}
+                    >
+                      Editar pieza
+                    </button>
+                    <button
+                      className="text-button text-danger"
+                      onClick={() => setPiece({ line: l, action: "remove" })}
+                    >
+                      Quitar pieza
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
+          );
+        })}
       </div>
       {order.notes && <p>{order.notes}</p>}
       <details>
@@ -630,6 +704,150 @@ function OrderDetails({ id, onClose }: { id: string; onClose: () => void }) {
         </button>
         {fileError && <Notice>{fileError}</Notice>}
       </section>
+      {mode === "add" && catalog.data && (
+        <AddPiece order={order} catalog={catalog.data} onClose={formClose} />
+      )}
+      {mode === "edit" && (
+        <OperationForm
+          title="Editar pedido"
+          action="order_edit"
+          extra={{ order_id: order.id, version: order.version }}
+          initial={{
+            description: order.description,
+            customer_id: order.customer_id,
+            notes: order.notes,
+            reference_url: order.reference_url,
+            model_url: order.model_url,
+          }}
+          fields={[
+            {
+              name: "description",
+              label: "Descripción del pedido",
+              required: true,
+            },
+            {
+              name: "customer_id",
+              label: "Cliente",
+              type: "select",
+              required: true,
+              options: (catalog.data?.customers ?? []).map((c) => ({
+                value: c.id,
+                label: c.name,
+              })),
+            },
+            { name: "notes", label: "Observaciones", type: "textarea" },
+            { name: "reference_url", label: "Referencia (URL)", type: "url" },
+            { name: "model_url", label: "Modelo (URL)", type: "url" },
+          ]}
+          onClose={formClose}
+        />
+      )}
+      {mode === "delete" && (
+        <OperationForm
+          title="Eliminar pedido"
+          action="order_delete"
+          extra={{ order_id: order.id, version: order.version }}
+          description="El pedido desaparecerá de las vistas de trabajo y conservará su historial contable y de auditoría. Si aún tiene cobros, cancélalo y devuelve el dinero primero; si ya fue entregado, debe estar pagado. No se devuelve material que realmente se consumió."
+          fields={[
+            {
+              name: "reason",
+              label: "Motivo de eliminación",
+              type: "textarea",
+              required: true,
+            },
+          ]}
+          onClose={formClose}
+          onSaved={onClose}
+        />
+      )}
+      {piece && (
+        <OperationForm
+          key={piece.line.id + piece.action}
+          title={
+            piece.action === "deliver"
+              ? "Entrega de piezas"
+              : piece.action === "edit"
+                ? "Editar pieza del pedido"
+                : "Quitar pieza del pedido"
+          }
+          action={
+            piece.action === "deliver"
+              ? "line_deliver"
+              : piece.action === "edit"
+                ? "order_line_save"
+                : "order_line_remove"
+          }
+          extra={{
+            order_id: order.id,
+            line_id: piece.line.id,
+            version: order.version,
+          }}
+          description={
+            piece.action === "deliver"
+              ? "Indica el total de unidades que ya entregaste de esta pieza. Puedes hacer entregas parciales o corregir una entrega registrada por error. El cobro se registra por separado."
+              : piece.action === "edit"
+                ? "Puedes cambiar descripción, cantidad y precio. Se conservan los costos cotizados y las unidades ya producidas, entregadas o cobradas."
+                : "Solo se pueden quitar piezas sin producción, entregas ni cobros asociados. El pedido debe conservar al menos una pieza."
+          }
+          fields={
+            piece.action === "deliver"
+              ? [
+                  {
+                    name: "delivered_quantity",
+                    label: "Total de unidades entregadas",
+                    type: "number",
+                    min: 0,
+                    max: Math.min(piece.line.quantity, piece.line.produced),
+                    required: true,
+                    default: String(piece.line.delivered_quantity),
+                  },
+                  {
+                    name: "notes",
+                    label: "Nota de la entrega o corrección",
+                    type: "textarea",
+                  },
+                ]
+              : piece.action === "edit"
+                ? [
+                    {
+                      name: "description",
+                      label: "Descripción de la pieza",
+                      required: true,
+                      default: piece.line.description,
+                    },
+                    {
+                      name: "quantity",
+                      label: "Cantidad de piezas",
+                      type: "number",
+                      min: 1,
+                      required: true,
+                      default: String(piece.line.quantity),
+                    },
+                    {
+                      name: "unit_price",
+                      label: "Precio de venta por unidad (COP)",
+                      type: "number",
+                      min: 0,
+                      required: true,
+                      default: String(piece.line.unit_price),
+                    },
+                  ]
+                : []
+          }
+          checks={
+            piece.action === "deliver"
+              ? [
+                  {
+                    name: "confirm_unpaid_delivery",
+                    label:
+                      "Autorizo entregar estas piezas con saldo pendiente de pago.",
+                  },
+                ]
+              : []
+          }
+          onClose={() => setPiece(null)}
+        />
+      )}
       {mode === "payment" && (
         <OperationForm
           title="Registrar dinero recibido"
@@ -641,6 +859,17 @@ function OrderDetails({ id, onClose }: { id: string; onClose: () => void }) {
             ". Se registra únicamente el dinero que recibiste efectivamente."
           }
           fields={[
+            {
+              name: "line_id",
+              label: "Aplicar el pago a",
+              type: "select",
+              options: order.lines.map((l) => ({
+                value: l.id,
+                label:
+                  l.description + " · saldo " + money(piecePayments(l).balance),
+              })),
+              hint: "Deja vacío para repartir automáticamente entre las piezas pendientes.",
+            },
             {
               name: "amount",
               label: "Valor recibido (COP)",
@@ -812,7 +1041,11 @@ export function OrdersPage() {
     [search, setSearch] = useState(""),
     [month, setMonth] = useState(today().slice(0, 7));
   const { data, error, loading, refresh } = useBusiness<PageData<Order>>(
-    view === "calendar" ? "calendar" : "orders",
+    view === "calendar"
+      ? "calendar"
+      : view === "receivables"
+        ? "receivables"
+        : "orders",
     {
       page,
       search,
@@ -872,6 +1105,7 @@ export function OrdersPage() {
       <Tabs
         items={[
           { id: "list", label: "Lista" },
+          { id: "receivables", label: "Entregado por cobrar" },
           { id: "kanban", label: "Tablero Kanban" },
           { id: "calendar", label: "Calendario" },
           { id: "queue", label: "Cola por impresora" },
@@ -882,6 +1116,13 @@ export function OrdersPage() {
           setPage(0);
         }}
       />
+      {view === "receivables" && (
+        <Notice type="info">
+          Piezas entregadas cuyo valor aún no está cubierto. Abre un pedido para
+          cobrar a la pieza correspondiente. Los pagos generales se reparten
+          automáticamente.
+        </Notice>
+      )}
       <Toolbar
         search={search}
         onSearch={(s) => {
@@ -969,7 +1210,7 @@ export function OrdersPage() {
                 </Link>
               }
             />
-          ) : view === "list" ? (
+          ) : ["list", "receivables"].includes(view) ? (
             <div className="resource-grid">{rows.map(renderCard)}</div>
           ) : view === "kanban" ? (
             <div className="kanban-board">

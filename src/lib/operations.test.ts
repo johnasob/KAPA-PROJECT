@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   calculateCost,
+  piecePayments,
   csvText,
   safeUrl,
   whatsappUrl,
@@ -221,4 +222,64 @@ describe("exportaciones y enlaces de clientes", () => {
     expect(whatsappUrl("300 123 4567", "Hola, KAPA")).toBe(
       "https://wa.me/573001234567?text=Hola%2C%20KAPA",
     ));
+});
+
+describe("insumos por pieza y duración", () => {
+  it("incluye switches y chips NFC según cantidad sin duplicar extras", () => {
+    const base = calculateCost(inputs, printer, [lot], 1000, 5000);
+    const updated = calculateCost(
+      {
+        ...inputs,
+        extra_items: [
+          { description: "Switch", quantity: "2", unit_cost: "350.25" },
+          { description: "Chip NFC", quantity: "1", unit_cost: "500" },
+        ],
+      },
+      printer,
+      [lot],
+      1000,
+      5000,
+    );
+    expect(updated.total).toBe(base.total + 1200.5);
+    expect(updated.price).toBe((base.total + 1200.5) * 3);
+  });
+  it("calcula una hora y treinta minutos como una hora y media", () => {
+    const half = calculateCost(
+      { ...inputs, hours: "1.5" },
+      printer,
+      [lot],
+      1000,
+      5000,
+    );
+    const full = calculateCost(
+      { ...inputs, hours: "2" },
+      printer,
+      [lot],
+      1000,
+      5000,
+    );
+    expect(full.total - half.total).toBe(550);
+  });
+});
+
+describe("cobertura exacta de pagos por pieza", () => {
+  it("reconoce tres unidades de 0,10 pagadas con 0,30", () => {
+    expect(piecePayments({ quantity: 3, unit_price: 0.1, paid: 0.3 })).toEqual({
+      paidInFull: true,
+      paidUnits: 3,
+      balance: 0,
+    });
+  });
+  it("distingue anticipo y unidades cubiertas sin perder centavos", () => {
+    expect(piecePayments({ quantity: 3, unit_price: 0.1, paid: 0.29 })).toEqual(
+      { paidInFull: false, paidUnits: 2, balance: 0.01 },
+    );
+  });
+  it("una pieza sin valor de venta no tiene saldo pendiente", () => {
+    expect(piecePayments({ quantity: 2, unit_price: 0, paid: 0 })).toEqual({
+      paidInFull: true,
+      paidUnits: 2,
+      balance: 0,
+    });
+  });
 });

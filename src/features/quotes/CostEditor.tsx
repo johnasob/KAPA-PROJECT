@@ -1,4 +1,5 @@
 import { Plus, Trash2 } from "lucide-react";
+import Decimal from "decimal.js";
 import { useId } from "react";
 import {
   calculateCost,
@@ -11,6 +12,7 @@ import { money } from "../../lib/format";
 export const emptyCost = (): CostInputs => ({
   printer_id: "",
   hours: "",
+  extra_items: [],
   materials: [
     { lot_id: "", piece_grams: "", support_grams: "0", waste_grams: "0" },
   ],
@@ -55,7 +57,7 @@ export function CostEditor({
   const update = (k: keyof CostInputs, v: string) =>
     onChange({ ...value, [k]: v });
   const input = (
-    key: Exclude<keyof CostInputs, "materials" | "printer_id">,
+    key: Exclude<keyof CostInputs, "materials" | "printer_id" | "extra_items">,
     label: string,
     hint?: string,
   ) => (
@@ -91,12 +93,67 @@ export function CostEditor({
             ))}
           </select>
         </div>
-        {input(
-          "hours",
-          production
-            ? "Horas reales totales *"
-            : "Horas de impresión por unidad *",
-        )}
+        <div
+          className="duration-input"
+          role="group"
+          aria-label={production ? "Duración real" : "Duración por unidad"}
+        >
+          <div className="field">
+            <label htmlFor={prefix + "duration-hours"}>
+              {production
+                ? "Horas reales totales *"
+                : "Horas de impresión por unidad *"}
+            </label>
+            <input
+              id={prefix + "duration-hours"}
+              type="number"
+              min="0"
+              step="1"
+              value={
+                value.hours === ""
+                  ? ""
+                  : Math.floor(Math.round(Number(value.hours) * 60) / 60)
+              }
+              onChange={(e) =>
+                update(
+                  "hours",
+                  new Decimal(e.target.value || 0)
+                    .plus(
+                      new Decimal(
+                        Math.round(Number(value.hours || 0) * 60) % 60,
+                      ).div(60),
+                    )
+                    .toString(),
+                )
+              }
+            />
+          </div>
+          <div className="field">
+            <label htmlFor={prefix + "duration-minutes"}>Minutos</label>
+            <input
+              id={prefix + "duration-minutes"}
+              type="number"
+              min="0"
+              max="59"
+              step="1"
+              value={
+                value.hours === ""
+                  ? "0"
+                  : Math.round(Number(value.hours) * 60) % 60
+              }
+              onChange={(e) =>
+                update(
+                  "hours",
+                  new Decimal(
+                    Math.floor(Math.round(Number(value.hours || 0) * 60) / 60),
+                  )
+                    .plus(new Decimal(e.target.value || 0).div(60))
+                    .toString(),
+                )
+              }
+            />
+          </div>
+        </div>
       </div>
       <div className="form-section-heading">
         <h3>
@@ -193,6 +250,73 @@ export function CostEditor({
           )}
         </div>
       ))}
+      <section className="itemized-extras">
+        <div className="form-section-heading">
+          <h3>Insumos y costos adicionales por unidad</h3>
+          <button
+            type="button"
+            className="text-button"
+            onClick={() =>
+              onChange({
+                ...value,
+                extra_items: [
+                  ...(value.extra_items ?? []),
+                  { description: "", quantity: "1", unit_cost: "0" },
+                ],
+              })
+            }
+          >
+            <Plus size={15} /> Agregar insumo
+          </button>
+        </div>
+        <p>
+          Switches, chips NFC, argollas de llavero, imanes o cualquier otro
+          costo.
+        </p>
+        {(value.extra_items ?? []).map((item, i) => (
+          <div className="extra-item-row" key={i}>
+            {(
+              [
+                ["description", "Insumo"],
+                ["quantity", "Cantidad del insumo"],
+                ["unit_cost", "Costo unitario del insumo (COP)"],
+              ] as const
+            ).map(([key, label]) => (
+              <div className="field" key={key}>
+                <label htmlFor={prefix + key + i}>{label}</label>
+                <input
+                  id={prefix + key + i}
+                  type={key === "description" ? "text" : "number"}
+                  min={key === "quantity" ? "0.001" : "0"}
+                  step="any"
+                  value={item[key]}
+                  onChange={(e) =>
+                    onChange({
+                      ...value,
+                      extra_items: (value.extra_items ?? []).map((it, j) =>
+                        j === i ? { ...it, [key]: e.target.value } : it,
+                      ),
+                    })
+                  }
+                />
+              </div>
+            ))}
+            <button
+              type="button"
+              className="icon-button"
+              aria-label={"Quitar insumo " + (i + 1)}
+              onClick={() =>
+                onChange({
+                  ...value,
+                  extra_items: value.extra_items?.filter((_, j) => j !== i),
+                })
+              }
+            >
+              <Trash2 size={16} />
+            </button>
+          </div>
+        ))}
+      </section>
       <details className="cost-extras">
         <summary>Mano de obra, pintado, personalización y otros costos</summary>
         <div className="business-form-grid">

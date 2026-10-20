@@ -1,6 +1,6 @@
 # Actualización de KAPA 3D
 
-`KAPA-3D-instalacion.sql` instala o actualiza fundamentos, registro y todos los módulos operativos: inventario, impresoras, costos, cotizaciones, clientes, pedidos, producción, caja, compras, deudas, socios y reportes. Conserva la cuenta administradora y los datos existentes. Está probado como instalación nueva, actualización y repetición; rechaza estados parciales con rollback.
+`KAPA-3D-instalacion.sql` instala o actualiza fundamentos, registro y todos los módulos operativos: inventario, impresoras, costos, cotizaciones, clientes, pedidos, producción, caja, compras, deudas, socios y reportes. Incluye la actualización de créditos con tarjeta, edición, cobros y entregas parciales por pieza, saldos iniciales y pruebas/fallos. Conserva la cuenta administradora y los datos existentes. Está probado como instalación nueva, actualización y repetición; rechaza estados parciales con rollback.
 
 Si ya puedes entrar, ejecuta este SQL actualizado una vez desde el SQL Editor de tu proyecto Supabase y actualiza el frontend en Netlify desde el repositorio. Consulta [las instrucciones de despliegue](../docs/deployment.md) y [el flujo diario](../docs/operations-guide.md).
 

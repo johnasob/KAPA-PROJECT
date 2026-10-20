@@ -15,6 +15,7 @@ export type Lot = Row<"inventory_lots"> & {
   available_grams: number;
   supplier_name: string | null;
   debt_balance?: number;
+  financing?: string;
 };
 export type Printer = Row<"printers"> & {
   depreciation_rate: number | null;
@@ -49,7 +50,7 @@ export type Order = Row<"orders"> & {
   paid: number;
   balance: number;
   actual_cost: number;
-  lines: (Row<"order_lines"> & { produced: number })[];
+  lines: (Row<"order_lines"> & { produced: number; paid: number })[];
   reservations: Row<"material_reservations">[];
   productions: Row<"production_runs">[];
   payments: Row<"cash_entries">[];
@@ -75,6 +76,14 @@ export type PartnerBalance = Row<"partners"> & {
 };
 export type Summary = Record<
   | "cash"
+  | "delivered_receivables"
+  | "installments_scheduled"
+  | "installments_pending"
+  | "installments_paid"
+  | "profit_before_interest"
+  | "after_installments"
+  | "opening_income"
+  | "opening_expense"
   | "sales_collected"
   | "receivables"
   | "realized_profit"
@@ -119,6 +128,7 @@ export type CostMaterial = {
 export type CostInputs = {
   printer_id: string;
   hours: string;
+  extra_items?: { description: string; quantity: string; unit_cost: string }[];
   materials: CostMaterial[];
   labor_hours: string;
   painting_hours: string;
@@ -173,6 +183,13 @@ export type Dashboard = {
   top_products: { name: string; quantity: number; sales: number }[];
   consumption: { name: string; grams: number }[];
   alerts: {
+    stale_orders: {
+      id: string;
+      number: number;
+      description: string;
+      created_at: string;
+      waiting_days: number;
+    }[];
     stock: Lot[];
     orders: Pick<
       Order,
@@ -252,6 +269,24 @@ export function whatsappUrl(phone: string, message: string) {
         encodeURIComponent(message)
     : null;
 }
+export function piecePayments(line: {
+  quantity: number;
+  unit_price: number;
+  paid: number;
+}) {
+  const unit = new Decimal(line.unit_price),
+    total = unit.times(line.quantity),
+    paid = new Decimal(line.paid);
+  return {
+    paidInFull: paid.gte(total),
+    balance: Decimal.max(total.minus(paid), 0)
+      .toDecimalPlaces(2, Decimal.ROUND_HALF_UP)
+      .toNumber(),
+    paidUnits: unit.gt(0)
+      ? Math.min(line.quantity, Math.max(0, paid.div(unit).floor().toNumber()))
+      : line.quantity,
+  };
+}
 export function calculateCost(
   inputs: CostInputs,
   printer: Row<"printers">,
@@ -308,7 +343,13 @@ export function calculateCost(
     painting = d(inputs.painting_hours)
       .times(laborRate)
       .plus(d(inputs.painting_materials));
-  const extras = d(inputs.supplies_cost)
+  const itemized = (inputs.extra_items ?? []).reduce((sum, item) => {
+    if (!item.description.trim() || d(item.quantity).lte(0))
+      throw Error("Describe el insumo y su cantidad.");
+    return sum.plus(d(item.quantity).times(d(item.unit_cost)));
+  }, new Decimal(0));
+  const extras = itemized
+    .plus(d(inputs.supplies_cost))
     .plus(d(inputs.customization_cost))
     .plus(d(inputs.packaging_cost))
     .plus(d(inputs.other_cost));

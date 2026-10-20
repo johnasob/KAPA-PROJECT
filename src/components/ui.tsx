@@ -1,11 +1,11 @@
-import { AlertCircle, Box, LoaderCircle, RefreshCw } from "lucide-react";
+import { AlertCircle, Printer, LoaderCircle, RefreshCw } from "lucide-react";
 import type { ReactNode } from "react";
 
 export function Brand({ compact = false }: { compact?: boolean }) {
   return (
     <div className="brand">
       <span className="brand-icon">
-        <Box size={25} strokeWidth={1.8} />
+        <Printer size={25} strokeWidth={1.8} />
       </span>
       <span>
         KAPA<span className="brand-3d">3D</span>

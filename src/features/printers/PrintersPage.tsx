@@ -8,6 +8,7 @@ import {
   ReadState,
   Toolbar,
   moneyFields,
+  financingField,
   useCatalog,
   optionList,
   type Field,
@@ -81,39 +82,38 @@ export function PrintersPage() {
       required: true,
     },
     { name: "notes", label: "Notas", type: "textarea" },
-    ...(!selected
-      ? ([
-          {
-            name: "paid",
-            label: "Pago inicial de la compra (COP)",
-            type: "number",
-            min: 0,
-          },
-          {
-            name: "supplier_id",
-            label: "Proveedor",
-            type: "select",
-            options: optionList(catalog.data?.suppliers),
-          },
-          ...moneyFields.map((f) => ({
-            ...f,
-            default: f.name === "date" ? today() : f.default,
-          })),
-          {
-            name: "installments",
-            label: "Cuotas del saldo",
-            type: "number",
-            default: "1",
-            min: 1,
-          },
-          { name: "next_due", label: "Primer vencimiento", type: "date" },
-          {
-            name: "description",
-            label: "Concepto de compra",
-            default: "Compra de impresora",
-          },
-        ] as Field[])
-      : []),
+    ...([
+      {
+        name: "paid",
+        label: "Pago inicial con dinero propio (COP)",
+        type: "number",
+        min: 0,
+      },
+      {
+        name: "supplier_id",
+        label: "Proveedor",
+        type: "select",
+        options: optionList(catalog.data?.suppliers),
+      },
+      financingField,
+      ...moneyFields.map((f) => ({
+        ...f,
+        default: f.name === "date" ? today() : f.default,
+      })),
+      {
+        name: "installments",
+        label: "Cuotas del saldo",
+        type: "number",
+        default: "1",
+        min: 1,
+      },
+      { name: "next_due", label: "Primer vencimiento", type: "date" },
+      {
+        name: "description",
+        label: "Concepto de compra",
+        default: "Compra de impresora",
+      },
+    ] as Field[]),
   ];
   return (
     <>
@@ -245,17 +245,13 @@ export function PrintersPage() {
               : {}
           }
           extra={selected ? { id: selected.id, version: selected.version } : {}}
-          checks={
-            !selected
-              ? [
-                  {
-                    name: "register_purchase",
-                    label:
-                      "Registrar esta adquisición como compra real (caja y deuda).",
-                  },
-                ]
-              : []
-          }
+          checks={[
+            {
+              name: "register_purchase",
+              label:
+                "Registrar esta adquisición como compra real (caja y deuda).",
+            },
+          ]}
           onClose={() => setMode(null)}
         />
       )}

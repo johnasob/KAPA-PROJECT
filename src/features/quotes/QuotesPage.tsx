@@ -54,12 +54,27 @@ const headerSchema = z.object({
 function QuoteComposer({
   catalog,
   onClose,
+  quote,
 }: {
+  quote?: Quote;
   catalog: Catalog;
   onClose: () => void;
 }) {
   const { settings } = useWorkspace();
-  const [lines, setLines] = useState<QuoteDraft[]>([freshLine()]),
+  const [lines, setLines] = useState<QuoteDraft[]>(
+      quote
+        ? quote.lines.map((l) => ({
+            ...freshLine(),
+            ...((l.cost_snapshot as Record<string, unknown>)
+              .inputs as Partial<CostInputs>),
+            description: l.description,
+            quantity: String(l.quantity),
+            product_id: l.product_id ?? "",
+            printer_id: l.printer_id,
+            hours: String(l.estimated_hours),
+          }))
+        : [freshLine()],
+    ),
     [issue, setIssue] = useState<string | null>(null),
     [customerForm, setCustomerForm] = useState(false);
   const operation = useOperation();
@@ -70,10 +85,12 @@ function QuoteComposer({
   } = useForm<z.infer<typeof headerSchema>>({
     resolver: zodResolver(headerSchema),
     defaultValues: {
-      customer_id: "",
-      description: "",
-      deposit_percent: String(settings.default_deposit_percent),
-      notes: "",
+      customer_id: quote?.customer_id ?? "",
+      description: quote?.description ?? "",
+      deposit_percent: String(
+        quote?.deposit_percent ?? settings.default_deposit_percent,
+      ),
+      notes: quote?.notes ?? "",
     },
   });
   let totalPrice = new Decimal(0),
@@ -123,13 +140,17 @@ function QuoteComposer({
           settings.labor_hour_cost,
         );
       }
-      const result = await operation.run("quote_create", {
-        ...header,
-        lines: lines.map((l) => ({
-          ...l,
-          materials: l.materials.map((m) => ({ ...m })),
-        })),
-      });
+      const result = await operation.run(
+        quote ? "quote_update" : "quote_create",
+        {
+          ...(quote ? { id: quote.id, version: quote.version } : {}),
+          ...header,
+          lines: lines.map((l) => ({
+            ...l,
+            materials: l.materials.map((m) => ({ ...m })),
+          })),
+        },
+      );
       if (result) onClose();
     } catch (e) {
       setIssue(e instanceof Error ? e.message : "Revisa los datos.");
@@ -137,16 +158,17 @@ function QuoteComposer({
   }
   return (
     <Modal
-      title="Nueva cotización"
+      title={quote ? "Editar cotización" : "Nueva cotización"}
       onClose={() => {
         if (!operation.busy) onClose();
       }}
     >
       <form onSubmit={handleSubmit(submit)} noValidate>
         <p className="modal-description">
-          Los gramos, horas y costos se calculan por unidad. La cotización
-          guardará una copia de los costos actuales; no reserva ni consume
-          material.
+          Puedes cotizar piezas personalizadas sin crear productos en el
+          catálogo. Agrega tantas piezas como necesites. Los gramos, horas y
+          costos se calculan por unidad. La cotización guardará una copia de los
+          costos actuales; no reserva ni consume material.
         </p>
         <div className="business-form-grid">
           <div className="field">
@@ -346,6 +368,7 @@ export function QuotesPage() {
   const [page, setPage] = useState(0),
     [search, setSearch] = useState(""),
     [compose, setCompose] = useState(false),
+    [editing, setEditing] = useState<Quote | null>(null),
     [convert, setConvert] = useState<Quote | null>(null),
     [product, setProduct] = useState(false);
   const catalog = useCatalog(),
@@ -444,7 +467,21 @@ export function QuotesPage() {
                         Costo/unidad: {money(l.unit_cost)} · Precio/unidad:{" "}
                         {money(l.unit_price)}
                       </p>
-                      <p>Impresión estimada: {l.estimated_hours} h/unidad</p>
+                      <p>
+                        Impresión estimada: {Math.floor(l.estimated_hours)} h{" "}
+                        {Math.round(l.estimated_hours * 60) % 60} min/unidad
+                      </p>
+                      {(
+                        (
+                          (l.cost_snapshot as Record<string, unknown>)
+                            .inputs as Partial<CostInputs>
+                        )?.extra_items ?? []
+                      ).map((it, i) => (
+                        <p key={i}>
+                          {it.description}: {it.quantity} ×{" "}
+                          {money(Number(it.unit_cost))} / pieza
+                        </p>
+                      ))}
                       <dl className="resource-details">
                         {Object.entries({
                           material_cost: "Material",
@@ -473,6 +510,14 @@ export function QuotesPage() {
                 </details>
                 {q.status === "draft" && (
                   <button
+                    className="button secondary"
+                    onClick={() => setEditing(q)}
+                  >
+                    Editar cotización
+                  </button>
+                )}
+                {q.status === "draft" && (
+                  <button
                     className="button primary"
                     onClick={() => setConvert(q)}
                   >
@@ -485,7 +530,7 @@ export function QuotesPage() {
         )}
         {data && <Pagination data={data} onPage={setPage} />}
       </ReadState>
-      {compose && (
+      {(compose || editing) && (
         <ReadState
           loading={catalog.loading && !catalog.data}
           error={catalog.error}
@@ -494,7 +539,11 @@ export function QuotesPage() {
           {catalog.data && (
             <QuoteComposer
               catalog={catalog.data}
-              onClose={() => setCompose(false)}
+              quote={editing ?? undefined}
+              onClose={() => {
+                setCompose(false);
+                setEditing(null);
+              }}
             />
           )}
         </ReadState>
