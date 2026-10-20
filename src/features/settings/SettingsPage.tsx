@@ -147,7 +147,7 @@ export function SettingsPage() {
               <div>
                 <h2>Pedidos e inventario</h2>
                 <p>
-                  Referencias que usarán los módulos en las siguientes fases.
+                  Parámetros de reservas, anticipos y alertas de inventario.
                 </p>
               </div>
               <span className="section-number">02</span>
@@ -251,7 +251,7 @@ export function SettingsPage() {
               {settings.energy_kwh_cost === null ||
               settings.labor_hour_cost === null
                 ? "Hay costos de energía o mano de obra sin configurar. Complétalos con información real antes de cotizar."
-                : "Estas referencias servirán para calcular costos. Configurarlas no registra gastos ni pagos automáticos."}
+                : "Estas referencias calculan costos de cotización y producción. Configurarlas no registra gastos ni pagos automáticos."}
             </p>
           </div>
           <Link className="text-link" to="/actualizar-clave">

@@ -3,6 +3,7 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import type { Database } from "../src/lib/database.types";
+import type { Dashboard } from "../src/lib/operations";
 
 type Settings = Database["public"]["Tables"]["business_settings"]["Row"];
 let admin: SupabaseClient<Database>;
@@ -346,13 +347,11 @@ test("un usuario se registra con tres campos, queda protegido y un socio lo habi
       .eq("code", "sebas")
       .single();
     if (partner.error) throw partner.error;
-    const restored = await admin
-      .from("user_profiles")
-      .insert({
-        user_id: userIds[1],
-        partner_id: partner.data.id,
-        display_name: "Sebas",
-      });
+    const restored = await admin.from("user_profiles").insert({
+      user_id: userIds[1],
+      partner_id: partner.data.id,
+      display_name: "Sebas",
+    });
     if (restored.error) throw restored.error;
   }
 });
@@ -461,4 +460,430 @@ test("recupera contraseña con un correo real del buzón local y un enlace de un
   await expect(
     page.getByRole("heading", { name: "Tu acceso aún no está habilitado." }),
   ).toBeVisible();
+});
+
+test("operación completa real: compra financiada, cotización, reservas, producción, cobros, deuda, utilidades y reportes", async ({
+  page,
+}) => {
+  test.setTimeout(180000);
+  page.setDefaultTimeout(15000);
+  const jsErrors: string[] = [];
+  page.on("pageerror", (e) => jsErrors.push(e.message));
+  const john = client();
+  const signed = await john.auth.signInWithPassword({
+    email: email.john,
+    password,
+  });
+  if (signed.error) throw signed.error;
+  const previous = await john.from("business_settings").select("*").single();
+  if (previous.error) throw previous.error;
+  const configured = await john.rpc("update_business_settings", {
+    p_changes: { energy_kwh_cost: "1000", labor_hour_cost: "5000" },
+    p_expected_version: previous.data.version,
+    p_request_id: randomUUID(),
+  });
+  if (configured.error) throw configured.error;
+  const printerName = "Impresora " + run,
+    customerName = "Cliente " + run,
+    inlineCustomerName = "Cliente en cotización " + run,
+    brand = "PLA " + run,
+    description = "Llaveros " + run;
+  const dialog = (name: string) =>
+    page.getByRole("dialog", { name, exact: true });
+  async function save(name: string, button = "Guardar operación") {
+    const d = dialog(name);
+    await d.getByRole("button", { name: button, exact: true }).click();
+    await expect(d).not.toBeVisible();
+  }
+  async function go(label: string) {
+    await page.getByRole("link", { name: label, exact: true }).click();
+  }
+  try {
+    expect((await admin.from("cash_entries").select("id")).data).toHaveLength(
+      0,
+    );
+    await login(page);
+    await expect(
+      page.getByRole("heading", { name: "Hola, John." }),
+    ).toBeVisible();
+    await go("Finanzas");
+    await page
+      .getByRole("button", { name: "Registrar ingreso", exact: true })
+      .click();
+    let d = dialog("Registrar ingreso real");
+    await d.getByLabel(/^Categoría/).selectOption("capital");
+    await d.getByLabel(/^Valor \(COP\)/).fill("500000");
+    await d.getByLabel(/^Descripción/).fill("Capital E2E");
+    await save("Registrar ingreso real");
+    await go("Inventario");
+    await page
+      .getByRole("button", { name: "Comprar filamento", exact: true })
+      .click();
+    d = dialog("Comprar filamento");
+    await d.getByLabel(/^Marca/).fill(brand);
+    await d.getByLabel(/^Color/).fill("Verde");
+    await d.getByLabel(/^Costo total del rollo/).fill("90000");
+    await d.getByLabel(/^Pago inicial/).fill("30000");
+    await d.getByLabel(/^Número de cuotas/).fill("3");
+    await d.getByLabel(/^Primer vencimiento/).fill("2030-01-01");
+    await d.getByLabel(/^Interés por cuota/).fill("1000");
+    await save("Comprar filamento");
+    await expect(
+      page.getByText("1.000", { exact: false }).first(),
+    ).toBeVisible();
+    await go("Impresoras");
+    await page
+      .getByRole("button", { name: "Agregar impresora", exact: true })
+      .click();
+    d = dialog("Nueva impresora");
+    await d.getByLabel(/^Nombre/).fill(printerName);
+    await d.getByLabel(/^Modelo/).fill("A1 Mini de prueba");
+    await d.getByLabel(/^Precio de adquisición/).fill("1000000");
+    await d.getByLabel(/^Vida útil/).fill("1000");
+    await d.getByLabel(/^Potencia estimada/).fill("0.1");
+    await save("Nueva impresora");
+    await go("Clientes");
+    await page
+      .getByRole("button", { name: "Nuevo cliente", exact: true })
+      .click();
+    d = dialog("Nuevo cliente");
+    await d.getByLabel(/^Nombre/).fill(customerName);
+    await d.getByLabel(/^Teléfono/).fill("3001234567");
+    await save("Nuevo cliente");
+    const customer = await admin
+      .from("customers")
+      .select("id")
+      .eq("name", customerName)
+      .single();
+    if (customer.error) throw customer.error;
+    const printer = await admin
+      .from("printers")
+      .select("id")
+      .eq("name", printerName)
+      .single();
+    if (printer.error) throw printer.error;
+    const material = await admin
+      .from("materials")
+      .select("id")
+      .eq("brand", brand)
+      .single();
+    if (material.error) throw material.error;
+    const lot = await admin
+      .from("inventory_lots")
+      .select("id")
+      .eq("material_id", material.data.id)
+      .single();
+    if (lot.error) throw lot.error;
+    await go("Costos y cotizaciones");
+    await page
+      .getByRole("button", { name: "Nueva cotización", exact: true })
+      .click();
+    d = dialog("Nueva cotización");
+    await d.getByLabel(/^Cliente/).selectOption(customer.data.id);
+    await d.getByLabel(/^Descripción general/).fill(description);
+    await d.getByLabel(/^Descripción del producto/).fill("Llavero verde");
+    await d.getByLabel(/^Cantidad/).fill("2");
+    await d.getByLabel(/^Impresora/).selectOption(printer.data.id);
+    await d.getByLabel(/^Horas de impresión/).fill("2");
+    await d.getByLabel(/^Rollo \/ color 1/).selectOption(lot.data.id);
+    await d.getByLabel(/^Pieza \(g\)/).fill("10");
+    await d.getByLabel(/^Soportes/).fill("2");
+    await d.getByLabel(/^Purgado/).fill("3");
+    await d.getByRole("button", { name: "Crear cliente", exact: true }).click();
+    await dialog("Nuevo cliente")
+      .getByLabel(/^Nombre/)
+      .fill(inlineCustomerName);
+    await save("Nuevo cliente");
+    await expect(d.getByLabel(/^Horas de impresión/)).toHaveValue("2");
+    await expect(d.getByLabel(/^Descripción general/)).toHaveValue(description);
+    const inlineCustomer = await admin
+      .from("customers")
+      .select("id")
+      .eq("name", inlineCustomerName)
+      .single();
+    if (inlineCustomer.error) throw inlineCustomer.error;
+    await d.getByLabel(/^Cliente/).selectOption(inlineCustomer.data.id);
+    await save("Nueva cotización", "Guardar cotización");
+    const quote = await admin
+      .from("quotes")
+      .select("*")
+      .eq("description", description)
+      .single();
+    expect(quote.error).toBeNull();
+    expect(quote.data?.price_total).toBe(21300);
+    expect(quote.data?.cost_total).toBe(7100);
+    await page
+      .getByRole("button", { name: "Convertir en pedido", exact: true })
+      .click();
+    d = dialog("Crear pedido desde cotización");
+    await d.getByLabel(/^Fecha comprometida/).fill("2030-01-10T12:00");
+    await save("Crear pedido desde cotización");
+    await page.locator(".order-card").filter({ hasText: description }).click();
+    await page
+      .getByRole("button", { name: "Registrar cobro", exact: true })
+      .click();
+    d = dialog("Registrar dinero recibido");
+    await d.getByLabel(/^Valor recibido/).fill("10650");
+    await save("Registrar dinero recibido");
+    await page
+      .getByRole("button", { name: "Estado y entrega", exact: true })
+      .click();
+    d = dialog("Estado y fecha de entrega");
+    await d.getByLabel(/^Estado/).selectOption("confirmed");
+    await save("Estado y fecha de entrega");
+    expect(
+      (await admin.from("material_reservations").select("grams")).data?.[0]
+        .grams,
+    ).toBe(30);
+    expect(
+      (
+        await admin
+          .from("inventory_lots")
+          .select("on_hand_grams")
+          .eq("id", lot.data.id)
+          .single()
+      ).data?.on_hand_grams,
+    ).toBe(1000);
+    await page
+      .getByRole("button", { name: "Reorganizar cola", exact: true })
+      .click();
+    d = dialog("Reorganizar cola de producción");
+    await d.getByLabel(/^Prioridad/).selectOption("2");
+    await d.getByRole("button", { name: "Confirmar prioridad" }).click();
+    await expect(d).not.toBeVisible();
+    await page
+      .getByRole("button", { name: "Registrar producción", exact: true })
+      .click();
+    await save("Registrar producción real", "Registrar consumo y producción");
+    expect(
+      (
+        await admin
+          .from("inventory_lots")
+          .select("on_hand_grams")
+          .eq("id", lot.data.id)
+          .single()
+      ).data?.on_hand_grams,
+    ).toBe(970);
+    expect(
+      (await admin.from("material_reservations").select("grams")).data?.[0]
+        .grams,
+    ).toBe(0);
+    await page
+      .getByRole("button", { name: "Registrar cobro", exact: true })
+      .click();
+    d = dialog("Registrar dinero recibido");
+    await d.getByLabel(/^Valor recibido/).fill("10650");
+    await save("Registrar dinero recibido");
+    for (const state of ["ready_delivery", "delivered"]) {
+      await page
+        .getByRole("button", { name: "Estado y entrega", exact: true })
+        .click();
+      d = dialog("Estado y fecha de entrega");
+      await d.getByLabel(/^Estado/).selectOption(state);
+      await save("Estado y fecha de entrega");
+    }
+    const png = Buffer.from(
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/b9sAAAAASUVORK5CYII=",
+      "base64",
+    );
+    await page.locator('input[type="file"]').setInputFiles({
+      name: "referencia-prueba.png",
+      mimeType: "image/png",
+      buffer: png,
+    });
+    await page
+      .getByRole("button", { name: "Guardar adjunto privado", exact: true })
+      .click();
+    await expect(
+      page.getByRole("button", { name: "referencia-prueba.png", exact: true }),
+    ).toBeVisible();
+    const storedFile = await admin
+      .from("order_files")
+      .select("object_path")
+      .eq("created_by", userIds[0])
+      .single();
+    if (storedFile.error) throw storedFile.error;
+    const retrieved = await john.storage
+      .from("kapa-order-files")
+      .download(storedFile.data.object_path);
+    if (retrieved.error) throw retrieved.error;
+    expect(Buffer.from(await retrieved.data.arrayBuffer())).toEqual(png);
+    const anonymous = client();
+    expect(
+      (
+        await anonymous.storage
+          .from("kapa-order-files")
+          .download(storedFile.data.object_path)
+      ).error,
+    ).not.toBeNull();
+    await page
+      .getByRole("dialog")
+      .getByRole("button", { name: "Cerrar formulario" })
+      .click();
+    await page
+      .getByRole("tab", { name: "Tablero Kanban", exact: true })
+      .click();
+    await expect(page.locator(".kanban-column")).toHaveCount(9);
+    await page.getByRole("tab", { name: "Calendario", exact: true }).click();
+    await page.getByLabel("Mes del calendario").fill("2030-01");
+    await expect(
+      page.locator(".calendar-order").filter({ hasText: description }),
+    ).toBeVisible();
+    await go("Finanzas");
+    await page.getByRole("tab", { name: "Deudas y cuotas" }).click();
+    await page
+      .getByRole("button", { name: "Registrar pago", exact: true })
+      .click();
+    await save("Pagar cuota o abonar deuda");
+    await page.getByRole("tab", { name: "John y Sebas", exact: true }).click();
+    await page
+      .getByRole("button", { name: "Registrar adelanto", exact: true })
+      .click();
+    d = dialog("Entregar adelanto a socio");
+    const partner = await admin
+      .from("partners")
+      .select("id")
+      .eq("code", "john")
+      .single();
+    if (partner.error) throw partner.error;
+    await d.getByLabel(/^Socio/).selectOption(partner.data.id);
+    await d.getByLabel(/^Valor/).fill("2000");
+    await d.getByLabel(/^Descripción/).fill("Adelanto E2E");
+    await save("Entregar adelanto a socio");
+    await page
+      .getByRole("button", { name: "Liquidar utilidades", exact: true })
+      .click();
+    d = dialog("Liquidar utilidades 50 / 50");
+    await d.getByLabel(/^Utilidad para reservar/).fill("3200");
+    await save("Liquidar utilidades 50 / 50");
+    let summary = await john.rpc("business_read", { p_section: "dashboard" });
+    if (summary.error) throw summary.error;
+    let dashboard = summary.data as unknown as Dashboard;
+    expect(dashboard.summary.cumulative_profit).toBe(13200);
+    expect(dashboard.summary.business_reserve).toBe(3200);
+    expect(dashboard.partners[0].balance).toBe(3000);
+    expect(dashboard.partners[1].balance).toBe(5000);
+    await page
+      .getByRole("button", { name: "Registrar retiro", exact: true })
+      .click();
+    d = dialog("Pagar retiro de utilidades");
+    await d.getByLabel(/^Socio/).selectOption(partner.data.id);
+    await d.getByLabel(/^Valor/).fill("3000");
+    await d.getByLabel(/^Descripción/).fill("Retiro E2E");
+    await save("Pagar retiro de utilidades");
+    summary = await john.rpc("business_read", { p_section: "dashboard" });
+    dashboard = summary.data as unknown as Dashboard;
+    expect(dashboard.partners[0].balance).toBe(0);
+    expect(dashboard.summary.cash).toBe(465300);
+    expect(dashboard.summary.debt_balance).toBe(40000);
+    await go("Reportes");
+    await page.locator(".report-controls select").selectOption("cash");
+    const download = page.waitForEvent("download");
+    await page.getByRole("button", { name: "Exportar CSV" }).click();
+    expect((await download).suggestedFilename()).toContain("KAPA-cash-");
+    await page.getByRole("button", { name: "Imprimir / PDF" }).click();
+    await expect(page.locator(".print-report")).toContainText("Capital E2E");
+    await page.pdf({
+      path: "test-results/kapa-reporte-real.pdf",
+      format: "A4",
+      landscape: true,
+    });
+    for (const kind of [
+      "sales",
+      "profitability",
+      "costs",
+      "consumption",
+      "inventory",
+      "expenses",
+      "debts",
+      "partners",
+      "products",
+      "customers",
+    ]) {
+      await page.locator(".report-controls select").selectOption(kind);
+      await expect(
+        page.getByRole("heading", { name: "No pudimos cargar los datos" }),
+      ).toHaveCount(0);
+      await expect(page.locator(".table-wrap table")).toBeVisible();
+    }
+    await go("Inicio");
+    await expect(page.locator(".chart-container")).toHaveCount(6);
+    await page.screenshot({
+      path: "test-results/kapa-dashboard-operativo.png",
+      fullPage: true,
+    });
+    await page.setViewportSize({ width: 390, height: 844 });
+    for (const path of [
+      "/",
+      "/inventario",
+      "/impresoras",
+      "/cotizaciones",
+      "/clientes",
+      "/pedidos",
+      "/finanzas",
+      "/reportes",
+    ]) {
+      await page.goto(path);
+      await expect(
+        page.locator(".business-stats,.resource-grid,.report-controls").first(),
+      ).toBeVisible();
+      expect(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= innerWidth,
+        ),
+        path,
+      ).toBe(true);
+    }
+    await page.screenshot({
+      path: "test-results/kapa-operativo-mobile.png",
+      fullPage: true,
+    });
+    expect(jsErrors).toEqual([]);
+  } finally {
+    const uid = userIds[0];
+    if (!/^[a-f0-9-]{36}$/.test(uid)) throw Error("Fixture inválida");
+    const attachedFiles = await admin
+      .from("order_files")
+      .select("object_path")
+      .eq("created_by", uid);
+    if (attachedFiles.data?.length) {
+      const removed = await admin.storage
+        .from("kapa-order-files")
+        .remove(attachedFiles.data.map((f) => f.object_path));
+      if (removed.error) throw removed.error;
+    }
+    const cleanup = `delete from public.advance_compensations where advance_id in(select a.id from public.partner_advances a join public.cash_entries c on c.id=a.cash_entry_id where c.created_by='${uid}');
+delete from public.partner_allocations where settlement_id in(select id from public.settlements where created_by='${uid}');delete from public.settlements where created_by='${uid}';
+delete from public.partner_advances where cash_entry_id in(select id from public.cash_entries where created_by='${uid}');delete from public.partner_withdrawals where cash_entry_id in(select id from public.cash_entries where created_by='${uid}');
+delete from public.cash_entries where created_by='${uid}';delete from public.debt_payments where created_by='${uid}';delete from public.debt_installments where debt_id in(select id from public.debts where created_by='${uid}');delete from public.debts where created_by='${uid}';delete from public.purchases where created_by='${uid}';
+delete from public.inventory_movements where created_by='${uid}';delete from public.production_runs where created_by='${uid}';delete from public.material_reservations where order_id in(select id from public.orders where created_by='${uid}');delete from public.order_files where created_by='${uid}';delete from public.order_lines where order_id in(select id from public.orders where created_by='${uid}');delete from public.orders where created_by='${uid}';delete from public.quote_lines where quote_id in(select id from public.quotes where created_by='${uid}');delete from public.quotes where created_by='${uid}';delete from public.maintenance_records where created_by='${uid}';
+delete from public.inventory_lots where material_id in(select id from public.materials where brand='${brand}');delete from public.materials where brand='${brand}';delete from public.printers where name='${printerName}';delete from public.customers where name in ('${customerName}','${inlineCustomerName}');`;
+    execFileSync(
+      "docker",
+      [
+        "exec",
+        "-i",
+        "supabase_db_KAPA-PROJECT",
+        "psql",
+        "-U",
+        "postgres",
+        "-d",
+        "postgres",
+        "-v",
+        "ON_ERROR_STOP=1",
+      ],
+      { input: cleanup, stdio: ["pipe", "ignore", "pipe"] },
+    );
+    const now = await john.from("business_settings").select("version").single();
+    if (now.error) throw now.error;
+    const restored = await john.rpc("update_business_settings", {
+      p_changes: {
+        energy_kwh_cost: previous.data.energy_kwh_cost,
+        labor_hour_cost: previous.data.labor_hour_cost,
+      },
+      p_expected_version: now.data.version,
+      p_request_id: randomUUID(),
+    });
+    if (restored.error) throw restored.error;
+  }
 });

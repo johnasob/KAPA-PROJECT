@@ -40,6 +40,41 @@ const PartnersPage = lazy(() =>
 const AuditPage = lazy(() =>
   import("./features/audit/AuditPage").then((m) => ({ default: m.AuditPage })),
 );
+const InventoryPage = lazy(() =>
+  import("./features/inventory/InventoryPage").then((m) => ({
+    default: m.InventoryPage,
+  })),
+);
+const PrintersPage = lazy(() =>
+  import("./features/printers/PrintersPage").then((m) => ({
+    default: m.PrintersPage,
+  })),
+);
+const QuotesPage = lazy(() =>
+  import("./features/quotes/QuotesPage").then((m) => ({
+    default: m.QuotesPage,
+  })),
+);
+const CustomersPage = lazy(() =>
+  import("./features/customers/CustomersPage").then((m) => ({
+    default: m.CustomersPage,
+  })),
+);
+const OrdersPage = lazy(() =>
+  import("./features/orders/OrdersPage").then((m) => ({
+    default: m.OrdersPage,
+  })),
+);
+const FinancePage = lazy(() =>
+  import("./features/finance/FinancePage").then((m) => ({
+    default: m.FinancePage,
+  })),
+);
+const ReportsPage = lazy(() =>
+  import("./features/reports/ReportsPage").then((m) => ({
+    default: m.ReportsPage,
+  })),
+);
 
 function ConfigurationRequired() {
   return (
@@ -147,6 +182,13 @@ function Gate() {
       <Routes>
         <Route element={<Layout />}>
           <Route index element={<OverviewPage />} />
+          <Route path="inventario" element={<InventoryPage />} />
+          <Route path="impresoras" element={<PrintersPage />} />
+          <Route path="cotizaciones" element={<QuotesPage />} />
+          <Route path="clientes" element={<CustomersPage />} />
+          <Route path="pedidos" element={<OrdersPage />} />
+          <Route path="finanzas" element={<FinancePage />} />
+          <Route path="reportes" element={<ReportsPage />} />
           <Route path="socios" element={<PartnersPage />} />
           <Route path="configuracion" element={<SettingsPage />} />
           <Route path="actividad" element={<AuditPage />} />

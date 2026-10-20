@@ -2,7 +2,7 @@
 
 **Descarga suspendida:** el ZIP fue retirado de la rama principal tras una alerta de Microsoft Defender `Trojan:Script/Ulthar.A!ml`. La detección sigue pendiente de resolver. Consulta el [informe de revisión](docs/download-review.md) antes de descargar o publicar una compilación. No desactives la protección para abrir el paquete.
 
-Aplicación web para el negocio colombiano de impresión 3D de John y Sebas. **Fase 1: fundamentos.** Incluye registro con nombre, correo y contraseña, acceso privado, recuperación de contraseña, socios 50/50, aprobación de cuentas desde la app, configuración persistente, auditoría y navegación móvil. Inventario, costos, pedidos, caja y reportes se implementarán en las fases siguientes; no se muestran saldos o ventas inventados.
+Aplicación web para el negocio colombiano de impresión 3D de John y Sebas. Incluye inventario por lotes, reservas, impresoras, mantenimiento, costos decimales, cotizaciones con costos conservados, clientes, pedidos, producción real, cobros parciales, caja, compras financiadas, deudas, liquidaciones 50/50, indicadores, gráficos y reportes CSV/PDF. Todos los datos operativos se guardan en Supabase; no se crean saldos, existencias o ganancias de demostración.
 
 ## Requisitos
 
@@ -22,7 +22,7 @@ Fuera del entorno cloud se puede usar simplemente `npm ci`.
 ### Conectar el proyecto gratuito
 
 1. Crea un proyecto en Supabase. No necesitas una suscripción de pago.
-2. En SQL Editor, ejecuta `release/KAPA-3D-instalacion.sql`. Instala los fundamentos si faltan y agrega el registro; puede repetirse y conserva los datos existentes. Alternativamente, aplica las migraciones versionadas con Supabase CLI. No ejecutes `db reset` contra un proyecto con datos.
+2. En SQL Editor, ejecuta `release/KAPA-3D-instalacion.sql`. Instala los fundamentos, el registro y todos los módulos; puede repetirse y conserva los datos existentes. Alternativamente, aplica las migraciones versionadas con Supabase CLI. No ejecutes `db reset` contra un proyecto con datos.
 3. En Authentication, habilita el proveedor Email y **Allow new users to sign up**. Crear una cuenta no concede acceso al negocio: RLS mantiene la protección. Configura la Site URL del despliegue y permite tanto su origen como `<origen>/actualizar-clave` para las confirmaciones y recuperación. Si exiges confirmación de correo, usa un proveedor de correo adecuado y considera sus límites de envío.
 4. Copia `.env.example` a `.env.local` y completa únicamente la URL y la clave **pública publishable/anon**:
 
@@ -47,7 +47,7 @@ npm run env:local
 npm run dev
 ```
 
-`db:start` descarga la CLI oficial fijada (2.76.4), verifica el SHA-256 publicado y usa las imágenes oficiales del registro Docker. No desactiva TLS ni verifica checksums contra valores inventados. Los binarios van en `.tools/`, ignorado por Git. Se inician PostgreSQL, Auth, PostgREST, Kong y el buzón de desarrollo; los servicios adicionales no usados se excluyen. Docker necesita varios GB de disco en la primera ejecución. No se instalan herramientas globales.
+`db:start` descarga la CLI oficial fijada (2.76.4), verifica el SHA-256 publicado y usa las imágenes oficiales del registro Docker. No desactiva TLS ni verifica checksums contra valores inventados. Los binarios van en `.tools/`, ignorado por Git. Se inician PostgreSQL, Auth, PostgREST, Storage, Kong y el buzón de desarrollo; los servicios adicionales no usados se excluyen. Docker necesita varios GB de disco en la primera ejecución. No se instalan herramientas globales.
 
 En este entorno Docker usa VFS. Para evitar que las copias sucesivas de capas agoten el disco, `prepare-local-db.mjs` utiliza crane oficial (también con SHA-256 verificado) para exportar la imagen de PostgreSQL desde su digest y cargar una sola capa local con los mismos archivos, entorno y comandos de inicio. La imagen local tiene un ID diferente del registro. Este paso se omite si la imagen ya existe o Docker utiliza otro almacenamiento.
 
@@ -60,24 +60,25 @@ Las bases de datos locales se conservan en volúmenes de Docker. `npm run db:sto
 ## Validación
 
 ```sh
-npm test                 # Configuración pública, formulario y estados sin conexión
+npm test                 # Configuración, registro, costos decimales y CSV seguro
 npm run build            # TypeScript estricto y bundle de producción
-npm run db:test          # pgTAP: RLS, auditoría, versiones e idempotencia (Supabase local)
-npm run test:e2e         # Chromium + Auth/PostgREST/PostgreSQL reales, solo base local vacía
+npm run db:test          # pgTAP: permisos, stock, costos, cobros, caja, deuda y 50/50
+npm run test:e2e         # Chromium + Auth/PostgREST/Storage/PostgreSQL reales, solo base local vacía
+npm run db:test:installer # Instalación nueva, actualización y repetición en bases temporales
 ```
 
-E2E requiere Supabase local iniciado. Usa Chromium del sistema (`/usr/bin/chromium` en cloud); en otro sistema configura `CHROMIUM_PATH` o instala el navegador de Playwright. El runner inicia su propio frontend en el puerto 5174 con la conexión pública local, incluso si las variables normales apuntan al proyecto alojado. Se niega a usar una base externa o perfiles de socios ya asignados. Crea cuentas temporales y valida registro, aprobación, sesión, configuración, auditoría, bloqueo de terceros e interfaz móvil. Restaura los parámetros y elimina sus cuentas. Las pruebas SQL usan transacciones revertidas. No ejecutar E2E contra producción.
+E2E requiere Supabase local iniciado. Usa Chromium del sistema (`/usr/bin/chromium` en cloud); en otro sistema configura `CHROMIUM_PATH` o instala el navegador de Playwright. El runner inicia su propio frontend en el puerto 5174 con la conexión pública local, incluso si las variables normales apuntan al proyecto alojado. Se niega a usar una base externa o perfiles de socios ya asignados. Crea cuentas temporales y valida registro, aprobación, sesión, configuración, auditoría, bloqueo de terceros, el flujo completo de compra a liquidación, adjuntos privados, CSV/PDF e interfaz móvil. Restaura los parámetros y elimina sus cuentas. Las pruebas SQL usan transacciones revertidas. No ejecutar E2E contra producción.
 
-`npm run release` compila la web para el proyecto alojado y regenera el ZIP y el instalador SQL dentro de `release/`. Este comando de empaquetado requiere Python 3; la aplicación no depende de Python.
+`npm run db:installer` regenera el instalador SQL sin crear un ZIP. `npm run build:deploy` genera el frontend de producción. La herramienta local `npm run release` sigue disponible para empaquetado técnico con Python 3, pero los ZIP están ignorados por Git y su distribución permanece suspendida por la alerta pendiente; no se ha usado para entregar esta actualización.
 
 `npm run db:types` regenera los tipos del esquema local después de una migración. Los comandos de prueba no validan el proyecto alojado: después de conectarlo hay que comprobar su migración, políticas, cuentas, recuperación y origen HTTPS de forma independiente.
 
 ## Parámetros iniciales
 
-COP, America/Bogota, socios John y Sebas 50/50, anticipo 50 %, referencia de filamento $90.000/kg, alerta amarilla por debajo de 200 g y roja en 100 g o menos. Energía y mano de obra comienzan sin configurar. Ninguno de estos valores genera un movimiento financiero o de inventario.
+COP, America/Bogota, socios John y Sebas 50/50, anticipo 50 %, referencia de filamento $90.000/kg, alerta amarilla por debajo de 200 g y roja en 100 g o menos. Energía y mano de obra comienzan sin configurar. Se incluye una Bambu Lab A1 Mini como referencia, con adquisición, vida útil y potencia sin configurar. Ninguno de estos valores genera un movimiento financiero o de inventario.
 
 ## Documentación
 
-Para obtener una URL que puedas abrir y usar fuera de Codex, sigue `docs/deployment.md`. La publicación del entorno cloud y el despliegue de la aplicación web son operaciones distintas.
+Para actualizar el sitio existente en Netlify, sigue `docs/deployment.md`. La publicación del entorno cloud y el despliegue de la aplicación web son operaciones distintas.
 
-Consulta `docs/architecture.md` para la separación de responsabilidades, permisos y alcance de las siguientes fases. `docs/product-brief.md` conserva la especificación entregada por el usuario. Las instrucciones cloud reutilizables se guardan también en el borrador del entorno. Guardar el borrador no publica el código ni crea un proyecto Supabase.
+Consulta `docs/operations-guide.md` para el flujo diario y las reglas de costos, caja y utilidades; `docs/architecture.md` describe módulos, permisos y transacciones. `docs/product-brief.md` conserva la especificación entregada por el usuario. Las instrucciones cloud reutilizables se guardan también en el borrador del entorno. Guardar el borrador no publica el código ni crea un proyecto Supabase.

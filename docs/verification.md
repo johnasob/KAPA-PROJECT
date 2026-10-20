@@ -1,31 +1,45 @@
-# Verificación de la fase 1
+# Verificación de KAPA 3D
 
-**Alerta de descarga pendiente:** Microsoft Defender reportó `Trojan:Script/Ulthar.A!ml` en el ZIP. Los resultados funcionales que se enumeran abajo no son una validación antivirus. La [revisión de la descarga](./download-review.md) documenta la reproducción exacta de los archivos y las comprobaciones que todavía faltan.
+Validado el 20 de octubre de 2026 en el entorno local de Codex con Node 24, Chromium y Supabase real: Auth, PostgREST, Storage y PostgreSQL 17. Los recorridos de integración no simulan respuestas de la aplicación.
 
-Validación actualizada el 20 de octubre de 2026 en el entorno cloud, con Node 24.19.0, Chromium y Supabase local real (Auth, PostgREST y PostgreSQL 17). No se usaron respuestas de API simuladas en las pruebas de integración.
+| Comprobación                                                                                              | Resultado                   |
+| --------------------------------------------------------------------------------------------------------- | --------------------------- |
+| TypeScript estricto y compilación de producción                                                           | Aprobados                   |
+| Vitest: configuración, registro, costos decimales, precios, CSV y enlaces                                 | 39 pruebas                  |
+| pgTAP: permisos, fundamentos, registro y operaciones                                                      | 177 pruebas                 |
+| Playwright: acceso, sesión, configuración, móvil y auditoría                                              | Aprobado                    |
+| Playwright: registro de tres campos, protección y aprobación de cuenta                                    | Aprobado                    |
+| Playwright: idempotencia, conflicto entre socios y recuperación por correo local                          | Aprobado                    |
+| Playwright: compra financiada → cotización → reserva → producción → cobros → deuda → liquidación → retiro | Aprobado                    |
+| Subida y descarga real de adjunto privado; rechazo de lectura anónima                                     | Aprobados                   |
+| CSV descargado y PDF generado por Chromium con filas reales del reporte                                   | Aprobados                   |
+| Once reportes y seis gráficos consultados desde el navegador                                              | Aprobados                   |
+| Navegación por los ocho módulos desde móvil de 390 px sin desbordamiento de documento                     | Aprobada                    |
+| Total de recorridos Playwright                                                                            | 7                           |
+| Instalación nueva, repetición y actualización con administrador y datos existentes                        | Aprobadas en bases aisladas |
+| Instalación parcial: rechazo y rollback completo                                                          | Aprobado                    |
+| Reinicio de Supabase con volúmenes conservados y Storage habilitado                                       | Aprobado                    |
 
-| Comprobación | Resultado |
-| --- | --- |
-| Instalación desde `package-lock.json` con `npm ci` | Aprobada |
-| TypeScript estricto y compilación de producción | Aprobados |
-| Vitest: configuración pública, parámetros, registro, confirmación y errores | 24 pruebas aprobadas |
-| pgTAP: permisos, RLS, registro, aprobación, auditoría, versiones e idempotencia | 45 pruebas aprobadas |
-| Playwright: sesión persistente, configuración e historial | Aprobado |
-| Playwright: vista móvil de Sebas, navegación y ausencia de desbordamiento horizontal | Aprobado |
-| Playwright: bloqueo de terceros autenticados | Aprobado |
-| Playwright: registro con tres campos y habilitación del segundo socio desde la app | Aprobado |
-| Playwright: cambios compartidos, reintentos y conflicto entre socios | Aprobado |
-| Playwright: correo de recuperación local y cambio de contraseña | Aprobado |
-| Total de flujos reales en Playwright | 6 aprobados |
-| Detención y nuevo arranque de Supabase conservando los volúmenes | Aprobados |
-| Regeneración segura de tipos desde PostgreSQL | Aprobada |
+## Invariantes verificados en PostgreSQL
 
-La API devuelve `PT409` (HTTP 409) cuando el otro socio ya cambió la configuración. Este conflicto de negocio no usa el error de serialización `40001`, que el cliente puede tratar como un fallo temporal y reintentar innecesariamente.
+- Reintentar una operación no duplica dinero, producción, gramos ni horas. Reutilizar UUID con otros datos o usuario se rechaza.
+- Comprar a crédito registra solo el pago inicial en caja y la diferencia como deuda; pagar principal no vuelve a generar gasto. Los intereses se registran aparte y los abonos se imputan a cuotas.
+- Material, soporte y purga se incluyen en costo y reservas. Cotizar y reservar no consumen existencias. La producción consume solo gramos reales y respeta las reservas ajenas. Un error de stock revierte toda la producción.
+- Margen y recargo usan denominadores diferentes; pintado y personalización se contabilizan una vez. Los costos guardados se conservan.
+- Anticipos y saldos no superan ni duplican la venta. Entrega con saldo y producción sin anticipo requieren autorización. Cancelar con cobros exige devolución real y libera reservas.
+- Solo una entrega totalmente cobrada produce utilidad realizada del pedido. Capital y préstamos no generan utilidad. Amortización, asignaciones y reservas no descuentan caja.
+- Liquidaciones 50/50, reservas, adelantos compensados y retiros mantienen saldos independientes; no se liquida dos veces la misma ganancia. Las pérdidas posteriores limitan liberar reservas.
+- Retiros superiores al saldo y caja negativa requieren autorización expresa y motivo. NaN y stock negativo se rechazan.
+- Ajustes, producción y compras se compensan conservando el original. Un rollo consumido no puede devolverse como compra intacta.
+- Pagar o comprar un concepto ya incluido en producción no vuelve a reducir utilidad cuando se indica esa imputación.
+- Anónimos y cuentas ajenas no leen ni operan el negocio. Los administradores no pueden eludir las RPC para escribir directamente.
 
-Las cuentas temporales se eliminaron y los parámetros originales se restauraron. Se confirmó que no quedan perfiles, solicitudes ni cuentas `@kapa.test`. No se crearon saldos, ventas, pedidos ni inventario. Las tablas financieras aún no forman parte de esta fase.
+Las pruebas SQL se revierten. El navegador crea cuentas, compras y movimientos temporales, verifica sus resultados y los elimina al terminar; los parámetros se restauran. No se trasladan los importes de prueba al negocio del usuario. Las bases del instalador se crean con prefijo propio y se eliminan al terminar.
 
-Se probó el instalador SQL en una base PostgreSQL aislada con las dependencias de esquema de Auth: instalación inicial, repetición preservando parámetros existentes y activación del primer administrador por correo. Se comprobó que la activación no puede reemplazar cuentas ya asignadas. Las pruebas de registro y aprobación con Auth real se ejecutaron por separado en la instancia local completa.
+## Alcance de los resultados
 
-El proyecto alojado de Supabase y sus variables públicas ya fueron configurados por el usuario, pero la conexión desde Codex encontró un bloqueo del proxy (403). No están verificados su migración, cuentas reales ni correo; no se aplicaron cambios privilegiados en él. El usuario debe aplicar el instalador y habilitar el registro en Supabase. Tampoco se ha verificado una URL pública de Netlify ni la restauración en otra tarea.
+El usuario informó que ya entra al sitio de Netlify y a su cuenta. Codex no tiene acceso administrativo a ese sitio ni a la base alojada; sus dominios responden con bloqueo del proxy 403 desde esta máquina. Los cambios no se han aplicado en esos servicios. El propietario debe ejecutar el instalador actualizado y desplegar main en Netlify. Los resultados locales no prueban que el sitio publicado tenga los módulos nuevos.
 
-Para conectar el proyecto alojado, sigue el README y configura la URL y clave pública. Las instrucciones de instalación e inicio y los nombres de ambas variables se guardaron en el borrador del entorno; guardar ese borrador no ejecuta scripts ni publica la configuración.
+La alerta de Microsoft Defender sobre el ZIP anterior sigue pendiente. Las pruebas funcionales y la auditoría de dependencias no son análisis antivirus. No se generó ni publicó un nuevo ZIP para esta entrega; [el informe anterior](download-review.md) mantiene la identificación de la muestra.
+
+Los límites de catálogos (1.000 opciones), exportación (50.000 filas), PDF por impresión y estimaciones continuas de cola están documentados en [arquitectura](architecture.md). No se implementaron modo oscuro, calendario laboral por turnos ni un servicio externo de PDF; no se presentan como funcionalidades existentes.

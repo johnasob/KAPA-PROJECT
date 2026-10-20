@@ -10,6 +10,13 @@ import {
   Settings2,
   Users,
   X,
+  Boxes,
+  Printer,
+  Calculator,
+  ContactRound,
+  ClipboardList,
+  Wallet,
+  ChartNoAxesCombined,
 } from "lucide-react";
 import { Brand, Notice } from "./ui";
 import { useAuth } from "../features/auth/AuthProvider";
@@ -19,12 +26,35 @@ import { errorMessage } from "../lib/format";
 
 const links = [
   { to: "/", title: "Inicio", icon: Home },
+  { to: "/inventario", title: "Inventario", icon: Boxes },
+  { to: "/impresoras", title: "Impresoras", icon: Printer },
+  { to: "/cotizaciones", title: "Costos y cotizaciones", icon: Calculator },
+  { to: "/clientes", title: "Clientes", icon: ContactRound },
+  { to: "/pedidos", title: "Pedidos y producción", icon: ClipboardList },
+  { to: "/finanzas", title: "Finanzas", icon: Wallet },
+  { to: "/reportes", title: "Reportes", icon: ChartNoAxesCombined },
   { to: "/socios", title: "Socios y equipo", icon: Users },
   { to: "/actividad", title: "Actividad", icon: Activity },
   { to: "/configuracion", title: "Configuración", icon: Settings2 },
 ];
 export function Layout() {
   const [open, setOpen] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const receive = (event: Event) => {
+      const message = (event as CustomEvent<unknown>).detail;
+      if (typeof message !== "string") return;
+      setNotice(message);
+      clearTimeout(timer);
+      timer = setTimeout(() => setNotice(null), 6000);
+    };
+    window.addEventListener("kapa:notice", receive);
+    return () => {
+      window.removeEventListener("kapa:notice", receive);
+      clearTimeout(timer);
+    };
+  }, []);
   const [error, setError] = useState<string | null>(null);
   const [leaving, setLeaving] = useState(false);
   const { profile } = useAuth();
@@ -185,6 +215,18 @@ export function Layout() {
           </div>
         </header>
         <main id="main" tabIndex={-1}>
+          {notice && (
+            <div className="operation-toast">
+              <Notice type="success">{notice}</Notice>
+              <button
+                className="icon-button"
+                aria-label="Ocultar mensaje"
+                onClick={() => setNotice(null)}
+              >
+                <X size={16} />
+              </button>
+            </div>
+          )}
           {error && <Notice>{error}</Notice>}
           <Outlet />
         </main>

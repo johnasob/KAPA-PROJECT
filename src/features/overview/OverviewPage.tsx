@@ -1,216 +1,421 @@
+import { useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import {
-  ArrowDownRight,
-  ArrowRight,
-  Box,
-  Check,
-  CheckCheck,
-  Layers3,
-  LockKeyhole,
-  Settings2,
-  ShieldCheck,
-  Users,
-} from "lucide-react";
+  Area,
+  AreaChart,
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  Legend,
+  Line,
+  LineChart,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
+import { ArrowRight, Plus, RefreshCw } from "lucide-react";
 import { PageTitle } from "../../components/ui";
+import { DateRange, ReadState, Stat } from "../../components/business";
 import { useAuth } from "../auth/AuthProvider";
 import { useWorkspace } from "../../lib/WorkspaceProvider";
-import { money } from "../../lib/format";
-
-const phases = [
-  [
-    "01",
-    "Una base segura",
-    "Acceso privado, socios, configuración e historial.",
-    true,
-  ],
-  [
-    "02",
-    "Materiales e impresoras",
-    "Inventario trazable, reservas y mantenimiento.",
-    false,
-  ],
-  [
-    "03",
-    "Del costo a la cotización",
-    "Costos precisos y precios con criterio.",
-    false,
-  ],
-  [
-    "04",
-    "Clientes y producción",
-    "Pedidos, anticipos y entregas organizadas.",
-    false,
-  ],
-  [
-    "05",
-    "Finanzas claras",
-    "Caja, deudas y distribución de utilidades.",
-    false,
-  ],
-  ["06", "Todo a la vista", "Indicadores, reportes y exportaciones.", false],
-] as const;
-
+import {
+  useBusiness,
+  today,
+  yearStart,
+  type Dashboard,
+} from "../../lib/operations";
+import { money, dateTime } from "../../lib/format";
+import { PartnerCards } from "../finance/FinancePage";
+const colors = [
+  "#50773d",
+  "#ada1d1",
+  "#e2ae59",
+  "#74a29d",
+  "#b65c59",
+  "#8fb855",
+];
+function ChartCard({
+  title,
+  children,
+  empty = false,
+}: {
+  title: string;
+  children: ReactNode;
+  empty?: boolean;
+}) {
+  return (
+    <section className="panel chart-card">
+      <h2>{title}</h2>
+      {empty ? (
+        <div className="chart-empty">Sin registros para este periodo.</div>
+      ) : (
+        <div className="chart-container">{children}</div>
+      )}
+    </section>
+  );
+}
 export function OverviewPage() {
-  const { profile } = useAuth();
-  const { settings, partners, members } = useWorkspace();
+  const { profile } = useAuth(),
+    { settings } = useWorkspace();
+  const [from, setFrom] = useState(yearStart()),
+    [to, setTo] = useState(today());
+  const { data, error, loading, refresh } = useBusiness<Dashboard>(
+    "dashboard",
+    { from, to },
+  );
+  const s = data?.summary;
   return (
     <>
       <PageTitle
         eyebrow="VISTA GENERAL"
-        title={`Hola, ${profile?.display_name}.`}
-        description="Cada gran impresión empieza con una buena base."
+        title={"Hola, " + profile?.display_name + "."}
+        description="Tu taller y tus finanzas, con información real del negocio."
         action={
-          <Link className="button secondary" to="/configuracion">
-            <Settings2 size={16} /> Configurar negocio
+          <Link className="button primary" to="/cotizaciones">
+            <Plus size={17} />
+            Nueva cotización
           </Link>
         }
       />
-      <section className="welcome-card">
-        <div className="welcome-copy">
-          <span className="pill dark">
-            <span className="status-dot" /> FUNDAMENTOS · FASE 01
-          </span>
-          <h2>
-            Tu próximo gran proyecto
-            <br />
-            empieza <em>aquí.</em>
-          </h2>
-          <p>
-            El espacio de {settings.business_name} ya tiene una base.
-            <br />
-            Construyamos una operación tan precisa como tus piezas.
-          </p>
-          <Link className="button lime" to="/socios">
-            Conoce tu equipo <ArrowRight size={17} />
-          </Link>
-        </div>
-        <div className="welcome-art" aria-hidden="true">
-          <span className="art-orbit orbit-one" />
-          <span className="art-orbit orbit-two" />
-          <div className="cube">
-            <Box size={104} strokeWidth={0.8} />
-          </div>
-          <div className="art-tag">
-            <Layers3 size={15} /> UNA CAPA A LA VEZ
-          </div>
-        </div>
-      </section>
-      <div className="info-grid">
-        <article className="summary-card">
-          <span className="icon-tile green">
-            <Users size={20} />
-          </span>
-          <small>Socios del negocio</small>
-          <strong>
-            {partners.length.toString().padStart(2, "0")}{" "}
-            <span>John + Sebas</span>
-          </strong>
-          <p>Participación compartida, 50 % cada uno.</p>
-        </article>
-        <article className="summary-card">
-          <span className="icon-tile sand">
-            <LockKeyhole size={20} />
-          </span>
-          <small>Cuentas habilitadas</small>
-          <strong>
-            {members
-              .filter((m) => m.active)
-              .length.toString()
-              .padStart(2, "0")}{" "}
-            <span>de {partners.length} socios</span>
-          </strong>
-          <p>Acceso validado desde la base de datos.</p>
-        </article>
-        <article className="summary-card">
-          <span className="icon-tile lilac">
-            <Settings2 size={20} />
-          </span>
-          <small>Anticipo predeterminado</small>
-          <strong>
-            {settings.default_deposit_percent} <span>% por pedido</span>
-          </strong>
-          <p>Referencia configurable para la fase de pedidos.</p>
-        </article>
+      <div className="dashboard-filters">
+        <DateRange
+          from={from}
+          to={to}
+          onChange={(f, t) => {
+            setFrom(f);
+            setTo(t);
+          }}
+        />
+        <button className="button secondary" onClick={refresh}>
+          <RefreshCw size={16} />
+          Actualizar
+        </button>
+        <Link to="/reportes" className="text-link">
+          Reportes y exportaciones <ArrowRight size={15} />
+        </Link>
       </div>
-      <div className="overview-columns">
-        <section className="panel roadmap">
-          <div className="section-heading">
-            <div>
-              <span className="eyebrow">EL CAMINO DE KAPA</span>
-              <h2>Crecer, con estructura.</h2>
+      <ReadState loading={loading} error={error} retry={refresh}>
+        {s && data && (
+          <>
+            <div className="business-stats dashboard-metrics">
+              <Stat
+                label="Caja disponible actual"
+                value={money(s.cash)}
+                tone="featured"
+                hint="Entradas menos salidas efectivas."
+              />
+              <Stat
+                label="Ventas cobradas · periodo"
+                value={money(s.sales_collected)}
+              />
+              <Stat
+                label="Cuentas por cobrar actuales"
+                value={money(s.receivables)}
+              />
+              <Stat
+                label="Utilidad realizada · periodo"
+                value={money(s.realized_profit)}
+                hint="Entregas totalmente cobradas menos costos y gastos."
+              />
+              <Stat
+                label="Ganancia estimada · pedidos activos"
+                value={money(s.estimated_profit)}
+              />
+              <Stat
+                label="Gastos operativos · periodo"
+                value={money(s.operating_expenses)}
+              />
+              <Stat
+                label="Deudas de capital pendientes"
+                value={money(s.debt_balance)}
+              />
+              <Stat
+                label="Inventario disponible actual"
+                value={money(s.inventory_value)}
+              />
+              <Stat label="Pedidos activos" value={s.active_orders} />
+              <Stat label="Listos para entregar" value={s.ready_orders} />
+              <Stat
+                label="Pedidos atrasados"
+                value={s.overdue_orders}
+                tone={s.overdue_orders ? "warning" : ""}
+              />
+              <Stat label="Completados · periodo" value={s.completed_orders} />
             </div>
-            <span className="pill">1 de 6 etapas</span>
-          </div>
-          <div className="phase-list">
-            {phases.map(([number, title, text, active]) => (
-              <div
-                className={`phase-row ${active ? "complete" : ""}`}
-                key={number}
+            <div className="charts-grid">
+              <ChartCard title="Ventas cobradas por mes">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={data.monthly}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                    <XAxis dataKey="month" tick={{ fontSize: 11 }} />
+                    <YAxis
+                      width={65}
+                      tickFormatter={(v) =>
+                        Number(v).toLocaleString("es-CO", {
+                          notation: "compact",
+                        })
+                      }
+                      tick={{ fontSize: 10 }}
+                    />
+                    <Tooltip formatter={(v) => money(Number(v))} />
+                    <Line
+                      isAnimationActive={false}
+                      name="Ventas cobradas"
+                      type="monotone"
+                      dataKey="sales"
+                      stroke="#50773d"
+                      strokeWidth={3}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </ChartCard>
+              <ChartCard title="Ingresos y salidas de caja">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={data.monthly}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                    <XAxis dataKey="month" tick={{ fontSize: 11 }} />
+                    <YAxis
+                      width={65}
+                      tickFormatter={(v) =>
+                        Number(v).toLocaleString("es-CO", {
+                          notation: "compact",
+                        })
+                      }
+                      tick={{ fontSize: 10 }}
+                    />
+                    <Tooltip formatter={(v) => money(Number(v))} />
+                    <Legend />
+                    <Bar
+                      isAnimationActive={false}
+                      dataKey="income"
+                      name="Ingresos"
+                      fill="#50773d"
+                      radius={[4, 4, 0, 0]}
+                    />
+                    <Bar
+                      isAnimationActive={false}
+                      dataKey="expenses"
+                      name="Salidas"
+                      fill="#c19483"
+                      radius={[4, 4, 0, 0]}
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+              </ChartCard>
+              <ChartCard title="Utilidad neta realizada por mes">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={data.monthly}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                    <XAxis dataKey="month" tick={{ fontSize: 11 }} />
+                    <YAxis
+                      width={65}
+                      tickFormatter={(v) =>
+                        Number(v).toLocaleString("es-CO", {
+                          notation: "compact",
+                        })
+                      }
+                      tick={{ fontSize: 10 }}
+                    />
+                    <Tooltip formatter={(v) => money(Number(v))} />
+                    <Area
+                      isAnimationActive={false}
+                      type="monotone"
+                      dataKey="profit"
+                      name="Utilidad"
+                      stroke="#8471ad"
+                      fill="#e3dcee"
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </ChartCard>
+              <ChartCard
+                title="Productos más vendidos"
+                empty={!data.top_products.length}
               >
-                <span className="phase-number">
-                  {active ? <Check size={16} /> : number}
-                </span>
-                <div>
-                  <h3>{title}</h3>
-                  <p>{text}</p>
-                </div>
-                <span className={`phase-status ${active ? "ready" : ""}`}>
-                  {active ? "Disponible" : "Por construir"}
-                </span>
-              </div>
-            ))}
-          </div>
-        </section>
-        <div className="side-stack">
-          <section className="panel parameters">
-            <div className="section-heading">
-              <h2>Las reglas de tu taller</h2>
-              <ArrowDownRight size={20} />
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={data.top_products} layout="vertical">
+                    <XAxis type="number" />
+                    <YAxis
+                      type="category"
+                      width={105}
+                      dataKey="name"
+                      tick={{ fontSize: 10 }}
+                    />
+                    <Tooltip />
+                    <Bar
+                      isAnimationActive={false}
+                      name="Unidades entregadas"
+                      dataKey="quantity"
+                      fill="#50773d"
+                      radius={[0, 4, 4, 0]}
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+              </ChartCard>
+              <ChartCard
+                title="Consumo real de filamento"
+                empty={!data.consumption.some((c) => c.grams > 0)}
+              >
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      isAnimationActive={false}
+                      data={data.consumption.filter((c) => c.grams > 0)}
+                      dataKey="grams"
+                      nameKey="name"
+                      innerRadius={48}
+                      outerRadius={82}
+                      paddingAngle={3}
+                    >
+                      {data.consumption.map((_, i) => (
+                        <Cell key={i} fill={colors[i % colors.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      formatter={(v) =>
+                        Number(v).toLocaleString("es-CO") + " g"
+                      }
+                    />
+                    <Legend />
+                  </PieChart>
+                </ResponsiveContainer>
+              </ChartCard>
+              <ChartCard title="Evolución de pedidos creados">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={data.monthly}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                    <XAxis dataKey="month" tick={{ fontSize: 11 }} />
+                    <YAxis allowDecimals={false} tick={{ fontSize: 10 }} />
+                    <Tooltip />
+                    <Bar
+                      isAnimationActive={false}
+                      dataKey="orders"
+                      name="Pedidos"
+                      fill="#e2ae59"
+                      radius={[4, 4, 0, 0]}
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+              </ChartCard>
             </div>
-            <p>Valores leídos de la configuración del negocio.</p>
-            <dl>
+            <div className="dashboard-alerts">
+              <section className="panel">
+                <h2>Materiales que necesitan atención</h2>
+                {!data.alerts.stock.some(
+                  (l) =>
+                    l.state === "active" &&
+                    l.available_grams < settings.low_stock_grams,
+                ) ? (
+                  <p>No hay alertas de filamento.</p>
+                ) : (
+                  data.alerts.stock
+                    .filter(
+                      (l) =>
+                        l.state === "active" &&
+                        l.available_grams < settings.low_stock_grams,
+                    )
+                    .map((l) => (
+                      <Link className="alert-row" to="/inventario" key={l.id}>
+                        <span>
+                          {l.kind} · {l.color}
+                          <small>{l.brand}</small>
+                        </span>
+                        <strong
+                          className={
+                            l.available_grams <= settings.critical_stock_grams
+                              ? "text-danger"
+                              : ""
+                          }
+                        >
+                          {l.available_grams} g
+                        </strong>
+                      </Link>
+                    ))
+                )}
+              </section>
+              <section className="panel">
+                <h2>Próximas entregas</h2>
+                {data.alerts.orders.length ? (
+                  data.alerts.orders.map((o) => (
+                    <Link
+                      className="alert-row"
+                      to={"/pedidos?pedido=" + o.id}
+                      key={o.id}
+                    >
+                      <span>
+                        K-{o.number} · {o.description}
+                      </span>
+                      <small
+                        className={
+                          new Date(o.promised_at) < new Date()
+                            ? "text-danger"
+                            : ""
+                        }
+                      >
+                        {dateTime(o.promised_at)}
+                      </small>
+                    </Link>
+                  ))
+                ) : (
+                  <p>No hay pedidos activos.</p>
+                )}
+              </section>
+              <section className="panel">
+                <h2>Obligaciones y mantenimiento</h2>
+                {!data.alerts.debts.length &&
+                !data.alerts.maintenance.length ? (
+                  <p>No hay vencimientos registrados.</p>
+                ) : (
+                  <>
+                    {data.alerts.debts.map((d) => (
+                      <Link className="alert-row" to="/finanzas" key={d.id}>
+                        <span>
+                          {d.description} · Cuota {d.number}
+                        </span>
+                        <small
+                          className={d.due_on < today() ? "text-danger" : ""}
+                        >
+                          {d.due_on}
+                        </small>
+                      </Link>
+                    ))}
+                    {data.alerts.maintenance.map((m) => (
+                      <Link
+                        className="alert-row"
+                        to="/impresoras"
+                        key={m.printer_id}
+                      >
+                        <span>Mantenimiento · {m.name}</span>
+                        <small>{m.next_due}</small>
+                      </Link>
+                    ))}
+                  </>
+                )}
+              </section>
+            </div>
+            <div className="section-heading">
               <div>
-                <dt>Moneda</dt>
-                <dd>{settings.currency}</dd>
+                <span className="eyebrow">SOCIOS · SALDOS ACTUALES</span>
+                <h2>John y Sebas, 50 / 50.</h2>
               </div>
-              <div>
-                <dt>Filamento · referencia / kg</dt>
-                <dd>{money(settings.reference_filament_kg_cost)}</dd>
-              </div>
-              <div>
-                <dt>Alerta de stock bajo</dt>
-                <dd>&lt; {settings.low_stock_grams} g</dd>
-              </div>
-              <div>
-                <dt>Alerta crítica</dt>
-                <dd>≤ {settings.critical_stock_grams} g</dd>
-              </div>
-            </dl>
-            <Link to="/configuracion" className="text-link">
-              Editar parámetros <ArrowRight size={15} />
-            </Link>
-          </section>
-          <section className="security-card">
-            <ShieldCheck size={25} />
-            <h3>Un espacio de confianza.</h3>
-            <p>
-              Solo los socios autorizados pueden consultar y actualizar la
-              información. Cada cambio de configuración queda registrado.
+              <Link to="/finanzas" className="text-link">
+                Liquidaciones y retiros <ArrowRight size={15} />
+              </Link>
+            </div>
+            <PartnerCards partners={data.partners} />
+            <p className="field-help">
+              Los filtros aplican a ventas, gastos, ganancias, gráficos y
+              pedidos completados. Caja, stock, cuentas pendientes y socios
+              muestran el saldo actual. Las amortizaciones y estimaciones de
+              energía son costos económicos, no pagos automáticos.
             </p>
-            <Link to="/actividad">
-              Ver historial <ArrowRight size={15} />
-            </Link>
-          </section>
-        </div>
-      </div>
-      <div className="foundation-note">
-        <CheckCheck size={18} />
-        <p>
-          Esta primera fase no registra ventas ni saldos. Los indicadores
-          financieros se incorporarán cuando existan los módulos y sus datos
-          reales.
-        </p>
-      </div>
+          </>
+        )}
+      </ReadState>
     </>
   );
 }

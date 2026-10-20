@@ -30,13 +30,22 @@ export function errorMessage(error: unknown): string {
   if (code === "user_already_exists" || code === "email_exists")
     return "Ese correo ya tiene una cuenta. Inicia sesión o recupera tu contraseña.";
   if (code === "PT422")
-    return "El usuario debe confirmar su correo antes de habilitar su acceso.";
+    return error && typeof error === "object" && "message" in error
+      ? String(error.message)
+      : "Revisa los requisitos de la operación antes de continuar.";
+  if (code === "PGRST202" || code === "PGRST205" || code === "42P01")
+    return "Falta actualizar las tablas de KAPA en Supabase. Ejecuta release/KAPA-3D-instalacion.sql desde SQL Editor y vuelve a intentar. Tu cuenta y datos se conservan.";
   if (code === "PT409")
     return "Los datos cambiaron. Actualiza la página antes de volver a intentar.";
   if (code === "42501" || status === 403)
     return "Tu usuario no tiene permiso para realizar esta operación.";
   if (code === "23514" || code === "22023" || code === "23502")
-    return "Revisa los valores ingresados. La base de datos rechazó la operación.";
+    return code === "22023" &&
+      error &&
+      typeof error === "object" &&
+      "message" in error
+      ? String(error.message)
+      : "Revisa los valores ingresados. La base de datos rechazó la operación.";
   if (code === "over_request_rate_limit" || status === 429)
     return "Demasiados intentos. Espera un momento antes de volver a intentar.";
   if (code === "weak_password")

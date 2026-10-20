@@ -16,20 +16,25 @@
     "test": "vitest run",
     "test:e2e": "playwright test",
     "env:local": "node scripts/local-env.mjs",
-    "db:start": "node scripts/prepare-local-db.mjs && sh scripts/supabase.sh start -x studio,imgproxy,realtime,storage-api,edge-runtime,logflare,vector,supavisor,postgres-meta",
+    "db:start": "node scripts/prepare-local-db.mjs && sh scripts/supabase.sh start -x studio,imgproxy,realtime,edge-runtime,logflare,vector,supavisor,postgres-meta",
     "db:stop": "sh scripts/supabase.sh stop",
     "db:test": "sh scripts/supabase.sh test db",
-    "db:types": "sh scripts/generate-types.sh"
+    "db:types": "sh scripts/generate-types.sh",
+    "db:installer": "node scripts/build-installer.mjs",
+    "db:test:installer": "npm run db:installer && python3 scripts/test-installer.py"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
     "@supabase/supabase-js": "^2.90.0",
     "@tailwindcss/vite": "^4.1.0",
+    "date-fns": "^4.4.0",
+    "decimal.js": "^10.6.0",
     "lucide-react": "^0.577.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "react-hook-form": "^7.71.0",
     "react-router-dom": "^7.13.0",
+    "recharts": "^3.10.1",
     "tailwindcss": "^4.1.0",
     "zod": "^4.3.0"
   },

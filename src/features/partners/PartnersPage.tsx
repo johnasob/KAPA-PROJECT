@@ -2,6 +2,7 @@ import { ShieldCheck, UserRound, Users } from "lucide-react";
 import { PageTitle } from "../../components/ui";
 import { useWorkspace } from "../../lib/WorkspaceProvider";
 import { RegistrationApprovals } from "./RegistrationApprovals";
+import { PartnerFinance } from "../finance/FinancePage";
 
 export function PartnersPage() {
   const { partners, members } = useWorkspace();
@@ -60,15 +61,16 @@ export function PartnersPage() {
         })}
       </div>
       <RegistrationApprovals />
+      <PartnerFinance embedded />
       <section className="panel note-panel">
         <Users size={24} />
         <div>
           <h2>Participación y dinero son cosas distintas.</h2>
           <p>
             El 50 % representa la participación de cada socio. Aportes,
-            adelantos, retiros y liquidaciones se incorporarán en la fase
-            financiera, con sus propios movimientos e historial. Aquí no se
-            presumen saldos ni ganancias.
+            adelantos, retiros y liquidaciones se registran por separado. Los
+            saldos de arriba provienen de operaciones reales y conservan su
+            historial.
           </p>
         </div>
       </section>

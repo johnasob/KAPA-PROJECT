@@ -4,6 +4,9 @@
 
 [build.environment]
   NODE_VERSION = "24"
+  # Estos dos valores son públicos y forman parte del frontend; RLS protege los datos.
+  VITE_SUPABASE_URL = "https://iggdnopxmkscwzwzocwl.supabase.co"
+  VITE_SUPABASE_PUBLISHABLE_KEY = "sb_publishable_BP9LHwJkPgxFjzfYyFfQMQ_KkCJmy_e"
 
 [[headers]]
   for = "/*"
