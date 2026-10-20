@@ -1,6 +1,6 @@
 # KAPA 3D
 
-Aplicación web para el negocio colombiano de impresión 3D de John y Sebas. **Fase 1: fundamentos.** Incluye acceso privado, recuperación de contraseña, socios 50/50, configuración persistente con validaciones y confirmación, auditoría paginada y navegación móvil. Inventario, costos, pedidos, caja y reportes se implementarán en las fases siguientes; no se muestran saldos o ventas inventados.
+Aplicación web para el negocio colombiano de impresión 3D de John y Sebas. **Fase 1: fundamentos.** Incluye registro con nombre, correo y contraseña, acceso privado, recuperación de contraseña, socios 50/50, aprobación de cuentas desde la app, configuración persistente, auditoría y navegación móvil. Inventario, costos, pedidos, caja y reportes se implementarán en las fases siguientes; no se muestran saldos o ventas inventados.
 
 ## Requisitos
 
@@ -20,11 +20,9 @@ Fuera del entorno cloud se puede usar simplemente `npm ci`.
 ### Conectar el proyecto gratuito
 
 1. Crea un proyecto en Supabase. No necesitas una suscripción de pago.
-2. En SQL Editor, ejecuta `supabase/migrations/20261019000100_foundations.sql` una sola vez. Alternativamente, usa Supabase CLI y `db push` después de vincular explícitamente tu proyecto. No ejecutes `db reset` contra un proyecto con datos.
-3. En Authentication, deshabilita registros públicos, configura la Site URL del despliegue y permite `<origen>/actualizar-clave` como URL de redirección. El entorno local incluye esta configuración.
-4. Crea las cuentas reales de John y Sebas en Authentication > Users. Configura sus contraseñas de forma privada o utiliza invitaciones. Un usuario invitado puede establecer su contraseña visitando `/actualizar-clave` después de abrir su enlace.
-5. Copia los UUID de ambas cuentas en `supabase/bootstrap-admins.sql` y ejecútalo desde SQL Editor. No reutilices UUID de pruebas. No es necesario exponer claves administrativas. Para revocar un acceso, actualiza `user_profiles.active` desde SQL Editor; RLS lo aplica inmediatamente.
-6. Copia `.env.example` a `.env.local` y completa únicamente la URL y la clave **pública publishable/anon**:
+2. En SQL Editor, ejecuta `release/KAPA-3D-instalacion.sql`. Instala los fundamentos si faltan y agrega el registro; puede repetirse y conserva los datos existentes. Alternativamente, aplica las migraciones versionadas con Supabase CLI. No ejecutes `db reset` contra un proyecto con datos.
+3. En Authentication, habilita el proveedor Email y **Allow new users to sign up**. Crear una cuenta no concede acceso al negocio: RLS mantiene la protección. Configura la Site URL del despliegue y permite tanto su origen como `<origen>/actualizar-clave` para las confirmaciones y recuperación. Si exiges confirmación de correo, usa un proveedor de correo adecuado y considera sus límites de envío.
+4. Copia `.env.example` a `.env.local` y completa únicamente la URL y la clave **pública publishable/anon**:
 
 ```dotenv
 VITE_SUPABASE_URL=https://<proyecto>.supabase.co
@@ -33,8 +31,11 @@ VITE_SUPABASE_PUBLISHABLE_KEY=<clave-publica>
 
 También se admite `VITE_SUPABASE_ANON_KEY` por compatibilidad; la clave publishable tiene prioridad. Nunca usar `service_role` o una clave `sb_secret_` en el frontend. El archivo local está ignorado por Git. En el entorno cloud se pueden configurar estas dos variables públicas en los ajustes del entorno; al compilar Vite quedan incorporadas al bundle.
 
-7. Si existe una lista de acceso de red, añade **el hostname exacto de tu proyecto** (`<proyecto>.supabase.co`) sin reemplazar otros dominios permitidos. No es necesario habilitar todos los proyectos de Supabase. El navegador del usuario también debe poder alcanzar ese dominio.
-8. Ejecuta `npm run dev`. Comprueba el acceso de ambos socios, una modificación de configuración y su historial. Las solicitudes de recuperación usan el proveedor de correo de Supabase y sus límites. Los enlaces PKCE deben abrirse en el mismo navegador que solicitó la recuperación.
+5. Si existe una lista de acceso de red, añade **el hostname exacto de tu proyecto** (`<proyecto>.supabase.co`) sin reemplazar otros dominios permitidos. El navegador del usuario también debe poder alcanzar ese dominio.
+6. Ejecuta `npm run dev` o publica la web. En la pantalla de acceso pulsa **Crear cuenta**: solo se piden nombre, correo y contraseña. Confirma el correo si el proyecto lo requiere.
+7. Solo para la primera cuenta administradora, el propietario del proyecto ejecuta `supabase/activate-first-admin.sql` desde SQL Editor cambiando únicamente `owner_email` por su correo registrado. No hay que copiar UUID ni compartir contraseñas. El script se niega a reemplazar cuentas existentes. Si ya existe un administrador, se omite este paso.
+8. El administrador abre **Socios y equipo → Solicitudes de acceso**, verifica el correo y habilita al segundo socio. Un usuario externo nunca obtiene administración por registrarse primero, llamarse John/Sebas o enviar metadatos con roles.
+9. Comprueba el acceso de ambos socios, una modificación persistente y su historial. Para revocar un acceso, actualiza `user_profiles.active` desde SQL Editor. Los enlaces PKCE de confirmación o recuperación deben abrirse en el navegador que los solicitó.
 
 ### Supabase local (sin proyecto externo)
 
@@ -50,7 +51,7 @@ En este entorno Docker usa VFS. Para evitar que las copias sucesivas de capas ag
 
 `env:local` crea `.env.local` únicamente si no existe y escribe solo la URL y la clave pública local. No sobrescribe una conexión existente ni escribe la clave administrativa. Reinicia Vite si cambias estas variables.
 
-No se crean usuarios ni contraseñas predeterminadas. Para el uso manual local, crea cuentas con Supabase Auth Admin API desde una herramienta confiable del backend y vincula sus UUID con `bootstrap-admins.sql`. La suite E2E crea y elimina sus propias cuentas temporales; nunca las uses como usuarios reales. Los correos locales de recuperación permanecen en Mailpit y no se envían a personas.
+No se crean usuarios ni contraseñas predeterminadas. El registro está habilitado localmente: crea tu cuenta desde la app y usa la activación inicial por correo para el primer administrador. La suite E2E crea y elimina sus cuentas temporales; nunca las uses como usuarios reales. Los correos locales permanecen en Mailpit y no se envían a personas.
 
 Las bases de datos locales se conservan en volúmenes de Docker. `npm run db:stop` detiene servicios conservando datos. Los procesos no sobreviven necesariamente a una nueva tarea cloud: vuelve a ejecutar `db:start` y `dev`. No dependas de que un proceso iniciado durante la instalación siga vivo.
 
@@ -63,7 +64,9 @@ npm run db:test          # pgTAP: RLS, auditoría, versiones e idempotencia (Sup
 npm run test:e2e         # Chromium + Auth/PostgREST/PostgreSQL reales, solo base local vacía
 ```
 
-E2E requiere Supabase local iniciado y `.env.local` configurado. Usa Chromium del sistema (`/usr/bin/chromium` en cloud); en otro sistema configura `CHROMIUM_PATH` o instala el navegador de Playwright. La suite se niega a usar una URL externa o perfiles de socios ya asignados. Crea cuentas temporales de John, Sebas y un usuario sin permisos; valida persistencia de sesión, configuración, auditoría, bloqueo de terceros, versión concurrente e interfaz móvil. Restaura los parámetros originales y elimina sus cuentas al terminar. Las pruebas SQL usan una transacción revertida. No ejecutar E2E contra producción.
+E2E requiere Supabase local iniciado. Usa Chromium del sistema (`/usr/bin/chromium` en cloud); en otro sistema configura `CHROMIUM_PATH` o instala el navegador de Playwright. El runner inicia su propio frontend en el puerto 5174 con la conexión pública local, incluso si las variables normales apuntan al proyecto alojado. Se niega a usar una base externa o perfiles de socios ya asignados. Crea cuentas temporales y valida registro, aprobación, sesión, configuración, auditoría, bloqueo de terceros e interfaz móvil. Restaura los parámetros y elimina sus cuentas. Las pruebas SQL usan transacciones revertidas. No ejecutar E2E contra producción.
+
+`npm run release` compila la web para el proyecto alojado y regenera el ZIP y el instalador SQL dentro de `release/`. Este comando de empaquetado requiere Python 3; la aplicación no depende de Python.
 
 `npm run db:types` regenera los tipos del esquema local después de una migración. Los comandos de prueba no validan el proyecto alojado: después de conectarlo hay que comprobar su migración, políticas, cuentas, recuperación y origen HTTPS de forma independiente.
 

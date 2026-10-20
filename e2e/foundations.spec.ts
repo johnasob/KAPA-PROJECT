@@ -265,13 +265,96 @@ test("una cuenta autenticada sin asignación no accede a los datos ni puede escr
     p_request_id: randomUUID(),
   });
   expect(write.error?.code).toBe("42501");
-  const visitor = client();
-  const signup = await visitor.auth.signUp({
-    email: `visitor-${run}@kapa.test`,
-    password,
+});
+
+test("un usuario se registra con tres campos, queda protegido y un socio lo habilita desde la app", async ({
+  page,
+  browser,
+}) => {
+  // La cuenta de Sebas de esta ejecución se desasigna temporalmente para
+  // comprobar la aprobación del segundo socio. Nunca se tocan cuentas reales.
+  const unbind = await admin
+    .from("user_profiles")
+    .delete()
+    .eq("user_id", userIds[1]);
+  if (unbind.error) throw unbind.error;
+  const registeredEmail = `registro-${run}@kapa.test`;
+  await page.goto("/");
+  await page.getByRole("button", { name: "Crear cuenta", exact: true }).click();
+  await expect(
+    page.getByRole("heading", { name: "Crea tu cuenta." }),
+  ).toBeVisible();
+  await expect(page.locator(".auth-form input")).toHaveCount(3);
+  await page.getByLabel("Nombre", { exact: true }).fill("Sebas registro");
+  await page.getByLabel("Correo electrónico").fill(registeredEmail);
+  await page.getByLabel("Contraseña", { exact: true }).fill(password);
+  await page.getByRole("button", { name: "Crear cuenta", exact: true }).click();
+  await expect(
+    page.getByRole("heading", { name: "Tu acceso aún no está habilitado." }),
+  ).toBeVisible();
+  const users = await admin.auth.admin.listUsers();
+  if (users.error) throw users.error;
+  const created = users.data.users.find(
+    (user) => user.email === registeredEmail,
+  );
+  if (!created) throw new Error("El registro no creó el usuario en Supabase.");
+  userIds.push(created.id);
+  expect(created.user_metadata.display_name).toBe("Sebas registro");
+  const registration = await admin
+    .from("registration_requests")
+    .select("*")
+    .eq("user_id", created.id)
+    .single();
+  expect(registration.data?.display_name).toBe("Sebas registro");
+  const context = await browser.newContext({
+    baseURL: "http://127.0.0.1:5174",
   });
-  if (signup.data.user) userIds.push(signup.data.user.id);
-  expect(signup.error?.code).toBe("signup_disabled");
+  try {
+    const owner = await context.newPage();
+    await login(owner);
+    await expect(
+      owner.getByRole("heading", { name: "Hola, John." }),
+    ).toBeVisible();
+    await owner.getByRole("link", { name: "Socios y equipo" }).click();
+    const row = owner
+      .locator(".registration-row")
+      .filter({ hasText: registeredEmail });
+    await expect(row).toBeVisible();
+    await row.getByRole("button", { name: "Habilitar acceso" }).click();
+    await owner.getByRole("button", { name: "Confirmar acceso" }).click();
+    await expect(
+      owner.getByText(/Acceso habilitado para Sebas registro/),
+    ).toBeVisible();
+    await page.getByRole("button", { name: "Comprobar acceso" }).click();
+    await expect(
+      page.getByRole("heading", { name: "Hola, Sebas registro." }),
+    ).toBeVisible();
+    await page.reload();
+    await expect(
+      page.getByRole("heading", { name: "Hola, Sebas registro." }),
+    ).toBeVisible();
+  } finally {
+    await context.close();
+    const removed = await admin
+      .from("user_profiles")
+      .delete()
+      .eq("user_id", created.id);
+    if (removed.error) throw removed.error;
+    const partner = await admin
+      .from("partners")
+      .select("id")
+      .eq("code", "sebas")
+      .single();
+    if (partner.error) throw partner.error;
+    const restored = await admin
+      .from("user_profiles")
+      .insert({
+        user_id: userIds[1],
+        partner_id: partner.data.id,
+        display_name: "Sebas",
+      });
+    if (restored.error) throw restored.error;
+  }
 });
 
 test("API real aplica idempotencia, auditoría única y control de versión entre socios", async () => {

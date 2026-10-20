@@ -24,9 +24,15 @@ export function errorMessage(error: unknown): string {
   if (code === "email_not_confirmed")
     return "Confirma tu correo antes de ingresar.";
   if (code === "email_provider_disabled")
-    return "El inicio de sesión por correo está deshabilitado en Supabase. Habilita el proveedor de correo y mantén cerrado el registro público.";
+    return "El acceso por correo está deshabilitado. Pide al administrador que lo habilite.";
+  if (code === "signup_disabled")
+    return "El registro de usuarios está deshabilitado. Pide al administrador que lo active.";
+  if (code === "user_already_exists" || code === "email_exists")
+    return "Ese correo ya tiene una cuenta. Inicia sesión o recupera tu contraseña.";
+  if (code === "PT422")
+    return "El usuario debe confirmar su correo antes de habilitar su acceso.";
   if (code === "PT409")
-    return "John o Sebas actualizaron la configuración. Recarga los datos antes de guardar.";
+    return "Los datos cambiaron. Actualiza la página antes de volver a intentar.";
   if (code === "42501" || status === 403)
     return "Tu usuario no tiene permiso para realizar esta operación.";
   if (code === "23514" || code === "22023" || code === "23502")

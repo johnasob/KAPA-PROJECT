@@ -10,6 +10,7 @@
     "dev": "vite --host 0.0.0.0",
     "build": "tsc -b && vite build",
     "build:deploy": "node --experimental-strip-types scripts/build-deploy.mjs",
+    "release": "npm run build:deploy && node scripts/package-release.mjs",
     "preview": "vite preview --host 0.0.0.0",
     "typecheck": "tsc -b",
     "test": "vitest run",

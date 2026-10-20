@@ -104,9 +104,9 @@ function UnassignedAccount() {
         <ShieldAlert size={32} />
         <h1>Tu acceso aún no está habilitado.</h1>
         <p>
-          Tu cuenta inició sesión, pero no está vinculada a un socio activo. Un
-          administrador de Supabase debe asignarte a John o Sebas. Registrarse
-          no concede acceso al negocio.
+          Tu cuenta ya está registrada. Un socio debe habilitar tu acceso a KAPA
+          3D desde «Socios y equipo». Cuando lo haga, pulsa «Comprobar acceso»
+          para entrar.
         </p>
         {error && <Notice>{error}</Notice>}
         <div className="dialog-actions">

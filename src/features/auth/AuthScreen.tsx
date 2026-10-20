@@ -13,6 +13,7 @@ import {
 import { database } from "../../lib/supabase";
 import { errorMessage } from "../../lib/format";
 import { Brand, Notice } from "../../components/ui";
+import { RegistrationForm } from "./RegistrationForm";
 
 const loginSchema = z.object({
   email: z.email("Ingresa un correo válido.").trim(),
@@ -21,7 +22,7 @@ const loginSchema = z.object({
 type Login = z.infer<typeof loginSchema>;
 
 export function AuthScreen() {
-  const [mode, setMode] = useState<"login" | "reset">("login");
+  const [mode, setMode] = useState<"login" | "reset" | "register">("login");
   const [visible, setVisible] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -119,106 +120,131 @@ export function AuthScreen() {
           <h2>
             {mode === "login"
               ? "Qué bueno verte de nuevo."
-              : "Recupera tu acceso."}
+              : mode === "register"
+                ? "Crea tu cuenta."
+                : "Recupera tu acceso."}
           </h2>
           <p>
             {mode === "login"
               ? "Ingresa con tu cuenta para continuar en KAPA 3D."
-              : "Te enviaremos un enlace seguro a tu correo."}
+              : mode === "register"
+                ? "Solo necesitas tu nombre, correo y contraseña."
+                : "Te enviaremos un enlace seguro a tu correo."}
           </p>
-          <form
-            onSubmit={
-              mode === "login"
-                ? handleSubmit(login)
-                : (e) => {
-                    e.preventDefault();
-                    void reset();
-                  }
-            }
-            noValidate
-          >
-            <label htmlFor="email">Correo electrónico</label>
-            <input
-              id="email"
-              type="email"
-              autoComplete="email"
-              placeholder="tu@correo.com"
-              {...register("email")}
-              aria-invalid={!!errors.email}
-              aria-describedby={errors.email ? "email-error" : undefined}
-            />
-            {errors.email && (
-              <span id="email-error" className="field-error">
-                {errors.email.message}
-              </span>
-            )}
-            {mode === "login" && (
-              <>
-                <label htmlFor="password">Contraseña</label>
-                <div className="password-input">
-                  <input
-                    id="password"
-                    type={visible ? "text" : "password"}
-                    autoComplete="current-password"
-                    {...register("password")}
-                    aria-invalid={!!errors.password}
-                    aria-describedby={
-                      errors.password ? "password-error" : undefined
+          {mode === "register" ? (
+            <RegistrationForm onLogin={() => setMode("login")} />
+          ) : (
+            <form
+              onSubmit={
+                mode === "login"
+                  ? handleSubmit(login)
+                  : (e) => {
+                      e.preventDefault();
+                      void reset();
                     }
-                  />
+              }
+              noValidate
+            >
+              <label htmlFor="email">Correo electrónico</label>
+              <input
+                id="email"
+                type="email"
+                autoComplete="email"
+                placeholder="tu@correo.com"
+                {...register("email")}
+                aria-invalid={!!errors.email}
+                aria-describedby={errors.email ? "email-error" : undefined}
+              />
+              {errors.email && (
+                <span id="email-error" className="field-error">
+                  {errors.email.message}
+                </span>
+              )}
+              {mode === "login" && (
+                <>
+                  <label htmlFor="password">Contraseña</label>
+                  <div className="password-input">
+                    <input
+                      id="password"
+                      type={visible ? "text" : "password"}
+                      autoComplete="current-password"
+                      {...register("password")}
+                      aria-invalid={!!errors.password}
+                      aria-describedby={
+                        errors.password ? "password-error" : undefined
+                      }
+                    />
+                    <button
+                      type="button"
+                      className="icon-button"
+                      aria-label={
+                        visible ? "Ocultar contraseña" : "Mostrar contraseña"
+                      }
+                      onClick={() => setVisible(!visible)}
+                    >
+                      {visible ? <EyeOff size={18} /> : <Eye size={18} />}
+                    </button>
+                  </div>
+                  {errors.password && (
+                    <span id="password-error" className="field-error">
+                      {errors.password.message}
+                    </span>
+                  )}
                   <button
+                    className="text-button forgot"
                     type="button"
-                    className="icon-button"
-                    aria-label={
-                      visible ? "Ocultar contraseña" : "Mostrar contraseña"
-                    }
-                    onClick={() => setVisible(!visible)}
+                    onClick={() => {
+                      setMode("reset");
+                      setError(null);
+                      setMessage(null);
+                    }}
                   >
-                    {visible ? <EyeOff size={18} /> : <Eye size={18} />}
+                    Olvidé mi contraseña
                   </button>
-                </div>
-                {errors.password && (
-                  <span id="password-error" className="field-error">
-                    {errors.password.message}
-                  </span>
-                )}
+                </>
+              )}
+              {error && <Notice>{error}</Notice>}
+              {message && <Notice type="success">{message}</Notice>}
+              <button className="button primary full" disabled={busy}>
+                {busy
+                  ? "Un momento…"
+                  : mode === "login"
+                    ? "Ingresar al espacio"
+                    : "Enviar enlace"}
+                <ArrowRight size={18} />
+              </button>
+              {mode === "reset" && (
                 <button
-                  className="text-button forgot"
                   type="button"
+                  className="text-button full"
                   onClick={() => {
-                    setMode("reset");
-                    setError(null);
+                    setMode("login");
                     setMessage(null);
+                    setError(null);
                   }}
                 >
-                  Olvidé mi contraseña
+                  Volver al inicio de sesión
                 </button>
-              </>
-            )}
-            {error && <Notice>{error}</Notice>}
-            {message && <Notice type="success">{message}</Notice>}
-            <button className="button primary full" disabled={busy}>
-              {busy
-                ? "Un momento…"
-                : mode === "login"
-                  ? "Ingresar al espacio"
-                  : "Enviar enlace"}
-              <ArrowRight size={18} />
-            </button>
-            {mode === "reset" && (
-              <button
-                type="button"
-                className="text-button full"
-                onClick={() => {
-                  setMode("login");
-                  setMessage(null);
-                  setError(null);
-                }}
-              >
-                Volver al inicio de sesión
-              </button>
-            )}
-          </form>
+              )}
+              {mode === "login" && (
+                <p className="auth-switch">
+                  ¿Primera vez aquí?{" "}
+                  <button
+                    type="button"
+                    className="text-button"
+                    disabled={busy}
+                    onClick={() => {
+                      setMode("register");
+                      setError(null);
+                      setMessage(null);
+                    }}
+                  >
+                    Crear cuenta
+                  </button>
+                </p>
+              )}
+            </form>
+          )}
           <div className="secure-note">
             <ShieldCheck size={17} />
             <span>Acceso exclusivo para los socios de KAPA 3D.</span>

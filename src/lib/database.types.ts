@@ -136,6 +136,24 @@ export type Database = {
         }
         Relationships: []
       }
+      registration_requests: {
+        Row: {
+          created_at: string
+          display_name: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          display_name: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          display_name?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_profiles: {
         Row: {
           active: boolean
@@ -176,6 +194,33 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      approve_registration: {
+        Args: { p_partner_code: string; p_user_id: string }
+        Returns: {
+          active: boolean
+          created_at: string
+          display_name: string
+          partner_id: string
+          role: string
+          user_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "user_profiles"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      get_pending_registrations: {
+        Args: { p_limit?: number; p_offset?: number }
+        Returns: {
+          created_at: string
+          display_name: string
+          email: string
+          email_confirmed: boolean
+          user_id: string
+        }[]
+      }
       update_business_settings: {
         Args: {
           p_changes: Json

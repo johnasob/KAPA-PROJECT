@@ -7,3 +7,7 @@ El paquete puede descargarse desde [su vista en GitHub](https://github.com/johna
 La clave pública de Supabase forma parte del frontend por diseño. La seguridad del negocio depende de las políticas RLS y de la asignación de las cuentas reales. El paquete no crea tablas ni usuarios y no supone que el backend alojado ya esté configurado o validado.
 
 Para reconstruirlo con otro proyecto, configura las variables públicas y ejecuta `npm run build:deploy`. Consulta `docs/deployment.md` antes de publicarlo.
+
+## Registro de usuarios
+
+Esta versión incluye **Crear cuenta** con solo nombre, correo y contraseña. Para actualizar Supabase, ejecuta también [`KAPA-3D-instalacion.sql`](./KAPA-3D-instalacion.sql) en SQL Editor y activa **Allow new users to sign up** en Authentication. La cuenta creada queda pendiente de acceso al negocio hasta que un socio la habilite desde la app. La primera cuenta administradora se activa una sola vez con su correo usando [`activate-first-admin.sql`](../supabase/activate-first-admin.sql); no se necesitan UUID ni contraseñas en el SQL.

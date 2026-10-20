@@ -1,6 +1,7 @@
 import { ShieldCheck, UserRound, Users } from "lucide-react";
 import { PageTitle } from "../../components/ui";
 import { useWorkspace } from "../../lib/WorkspaceProvider";
+import { RegistrationApprovals } from "./RegistrationApprovals";
 
 export function PartnersPage() {
   const { partners, members } = useWorkspace();
@@ -51,13 +52,14 @@ export function PartnersPage() {
                 <span>
                   {member?.active
                     ? `Cuenta vinculada a ${member.display_name}`
-                    : "Vinculación pendiente desde Supabase"}
+                    : "Pendiente de habilitar una cuenta registrada"}
                 </span>
               </div>
             </article>
           );
         })}
       </div>
+      <RegistrationApprovals />
       <section className="panel note-panel">
         <Users size={24} />
         <div>
