@@ -6,7 +6,7 @@ La aplicación funciona dentro de la máquina privada de Codex y se probó con S
 
 Ya se configuraron la URL y la clave pública del proyecto alojado en el entorno de Codex y se compiló el frontend con esos valores. Falta verificar/aplicar el esquema y las cuentas de John y Sebas, además de publicar el frontend. No hay una cuenta de alojamiento conectada a esta sesión ni una URL pública de KAPA 3D.
 
-El paquete generado es `/workspace/artifacts/KAPA-3D-web.zip`. Al extraerlo aparece la carpeta `KAPA-3D`, que contiene directamente `index.html`, `assets`, `_redirects` y el icono. Esa es la carpeta que se sube en el despliegue manual, sin incluir variables ni archivos de configuración privados.
+El paquete está disponible en [GitHub: release/KAPA-3D-web.zip](https://github.com/johnasob/KAPA-PROJECT/blob/main/release/KAPA-3D-web.zip). Abre el archivo con tu cuenta de GitHub y pulsa **Download raw file** para descargarlo. Al extraerlo aparece la carpeta `KAPA-3D`, que contiene directamente `index.html`, `assets`, `_redirects` y el icono. Esa es la carpeta que se sube en el despliegue manual, sin incluir variables ni archivos de configuración privados. No depende de enlaces a archivos privados de Codex.
 
 La comprobación de la API alojada desde Codex encontró un bloqueo de red (CONNECT 403). Se guardó en el borrador la adición del hostname exacto del proyecto. Hasta aplicar ese cambio y repetir la comprobación no se afirma que la base alojada esté verificada. Esta restricción de la máquina de Codex es independiente del acceso desde el navegador del usuario.
 
@@ -36,7 +36,7 @@ El comando acepta los proyectos gratuitos alojados en `*.supabase.co`. Los domin
 
 ## 3. Publicar el frontend
 
-Accede a tu cuenta de Netlify y utiliza su opción de despliegue manual para subir el contenido del `dist` generado con éxito. También puedes importar el repositorio cuando el código esté guardado en GitHub; actualmente los archivos creados en esta sesión aún no están subidos al repositorio remoto.
+Accede a tu cuenta de Netlify y utiliza su opción de despliegue manual para subir la carpeta `KAPA-3D` que extrajiste del paquete, o el contenido del `dist` generado con éxito. El código y el paquete ya están subidos a la rama `main` de [johnasob/KAPA-PROJECT](https://github.com/johnasob/KAPA-PROJECT); también puedes importar ese repositorio desde Netlify.
 
 En un despliegue conectado a Git, configura las dos variables públicas también en Netlify antes de compilar. No subas `.env.local`, el proyecto completo con sus cachés ni claves administrativas.
 
