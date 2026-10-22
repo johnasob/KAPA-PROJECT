@@ -16,6 +16,8 @@ export type Lot = Row<"inventory_lots"> & {
   supplier_name: string | null;
   debt_balance?: number;
   financing?: string;
+  color_hex?: string | null;
+  purchase?: Row<"purchases">;
 };
 export type Printer = Row<"printers"> & {
   depreciation_rate: number | null;
@@ -57,6 +59,7 @@ export type Order = Row<"orders"> & {
   files: Row<"order_files">[];
 };
 export type Debt = Row<"debts"> & {
+  purchase?: Row<"purchases">;
   balance: number;
   supplier_name: string | null;
   installments: (Row<"debt_installments"> & {
@@ -107,6 +110,8 @@ export type PageData<T> = {
   rows: T[];
   total: number;
   page: number;
+  state_counts?: Record<string, number>;
+  unpaid_orders?: number;
   summary?: Summary;
   partners?: PartnerBalance[];
 };
@@ -183,6 +188,14 @@ export type Dashboard = {
   top_products: { name: string; quantity: number; sales: number }[];
   consumption: { name: string; grams: number }[];
   alerts: {
+    balances: {
+      id: string;
+      number: number;
+      description: string;
+      customer_name: string;
+      balance: number;
+      paid: number;
+    }[];
     stale_orders: {
       id: string;
       number: number;
@@ -231,6 +244,7 @@ export const categoryNames: Record<string, string> = {
   parts: "Repuestos",
   inventory_purchase: "Compra de filamento",
   purchase_refund: "Reembolso de compra",
+  purchase_correction: "Corrección de forma de compra",
   asset_purchase: "Compra de impresora",
   operating_purchase: "Compra operativa",
   loan: "Préstamo recibido",
@@ -268,6 +282,17 @@ export function whatsappUrl(phone: string, message: string) {
         "?text=" +
         encodeURIComponent(message)
     : null;
+}
+export function totalColorMaterial(material: CostMaterial): CostMaterial {
+  return {
+    ...material,
+    piece_grams: new Decimal(material.piece_grams || 0)
+      .plus(material.support_grams || 0)
+      .plus(material.waste_grams || 0)
+      .toString(),
+    support_grams: "0",
+    waste_grams: "0",
+  };
 }
 export function piecePayments(line: {
   quantity: number;
@@ -331,7 +356,7 @@ export function calculateCost(
     if (!lot) throw Error("Selecciona un filamento.");
     return s.plus(d(m.grams).times(lot.purchase_cost).div(lot.initial_grams));
   }, new Decimal(0));
-  const dep = d(inputs.hours)
+  const uncappedDep = d(inputs.hours)
       .toDecimalPlaces(3, Decimal.ROUND_HALF_UP)
       .times(printer.acquisition_cost)
       .div(printer.useful_hours),
@@ -339,6 +364,13 @@ export function calculateCost(
       .toDecimalPlaces(3, Decimal.ROUND_HALF_UP)
       .times(printer.power_kw)
       .times(printer.energy_rate ?? energyRate ?? 0);
+  const dep = Decimal.min(
+    uncappedDep.toDecimalPlaces(2, Decimal.ROUND_HALF_UP),
+    material
+      .toDecimalPlaces(2, Decimal.ROUND_HALF_UP)
+      .times(0.1)
+      .toDecimalPlaces(2, Decimal.ROUND_DOWN),
+  );
   const labor = d(inputs.labor_hours).times(laborRate),
     painting = d(inputs.painting_hours)
       .times(laborRate)

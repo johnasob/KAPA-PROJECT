@@ -1,4 +1,6 @@
 import { Experiments } from "./Experiments";
+import { MaterialSummary } from "./MaterialSummary";
+import { PurchaseEditor } from "../finance/FinancingEditor";
 import { useState } from "react";
 import { History, Plus, RefreshCw, Undo2 } from "lucide-react";
 import { PageTitle, Notice } from "../../components/ui";
@@ -37,7 +39,7 @@ type Movement = Row<"inventory_movements"> & {
 export function InventoryPage() {
   const { settings } = useWorkspace();
   const catalog = useCatalog();
-  const [tab, setTab] = useState("inventory"),
+  const [tab, setTab] = useState("summary"),
     [page, setPage] = useState(0),
     [search, setSearch] = useState("");
   const { data, error, loading, refresh } = useBusiness<PageData<Lot>>(
@@ -57,6 +59,29 @@ export function InventoryPage() {
     checks?: { name: string; label: string }[];
     description?: string;
   } | null>(null);
+  const [editPurchase, setEditPurchase] = useState<string | null>(null);
+  const editLot = (lot: Lot) =>
+    setForm({
+      title: "Editar filamento y color",
+      action: "lot_update",
+      extra: { lot_id: lot.id, version: String(lot.version) },
+      fields: [
+        { name: "brand", label: "Marca", required: true, default: lot.brand },
+        { name: "kind", label: "Material", required: true, default: lot.kind },
+        {
+          name: "color",
+          label: "Nombre del color",
+          required: true,
+          default: lot.color,
+        },
+        {
+          name: "color_hex",
+          label: "Color visual",
+          type: "color",
+          default: lot.color_hex ?? "#d7cfca",
+        },
+      ],
+    });
   const purchase = () =>
     setForm({
       title: "Comprar filamento",
@@ -215,37 +240,48 @@ export function InventoryPage() {
         }
       />
       <CatalogWarning catalog={catalog.data} />
-      <Experiments catalog={catalog.data ?? undefined} />
-      <div className="business-stats">
-        <Stat
-          label="Existencias físicas · página"
-          value={
-            (
-              data?.rows.reduce((n, l) => n + Number(l.on_hand_grams), 0) ?? 0
-            ).toLocaleString("es-CO") + " g"
-          }
-        />
-        <Stat
-          label="Reservado · página"
-          value={
-            (
-              data?.rows.reduce((n, l) => n + Number(l.reserved_grams), 0) ?? 0
-            ).toLocaleString("es-CO") + " g"
-          }
-        />
-        <Stat
-          label="Valor disponible · página"
-          value={money(
-            data?.rows.reduce(
-              (n, l) => n + Number(l.available_grams) * Number(l.cost_per_gram),
-              0,
-            ) ?? 0,
-          )}
-          hint="El inventario no se registra como gasto al comprarlo."
-        />
-      </div>
+
+      {tab === "inventory" && (
+        <>
+          <div className="business-stats">
+            <Stat
+              label="Existencias físicas · página"
+              value={
+                (
+                  data?.rows.reduce((n, l) => n + Number(l.on_hand_grams), 0) ??
+                  0
+                ).toLocaleString("es-CO") + " g"
+              }
+            />
+            <Stat
+              label="Reservado · página"
+              value={
+                (
+                  data?.rows.reduce(
+                    (n, l) => n + Number(l.reserved_grams),
+                    0,
+                  ) ?? 0
+                ).toLocaleString("es-CO") + " g"
+              }
+            />
+            <Stat
+              label="Valor disponible · página"
+              value={money(
+                data?.rows.reduce(
+                  (n, l) =>
+                    n + Number(l.available_grams) * Number(l.cost_per_gram),
+                  0,
+                ) ?? 0,
+              )}
+              hint="El inventario no se registra como gasto al comprarlo."
+            />
+          </div>
+        </>
+      )}
       <Tabs
         items={[
+          { id: "summary", label: "Resumen por color" },
+          { id: "experiments", label: "Pruebas y fallos" },
           { id: "inventory", label: "Rollos y existencias" },
           { id: "history", label: "Historial de movimientos" },
         ]}
@@ -289,7 +325,18 @@ export function InventoryPage() {
           <RefreshCw size={16} />
         </button>
       </Toolbar>
-      {tab === "inventory" ? (
+      {tab === "summary" ? (
+        <MaterialSummary
+          search={search}
+          onLots={(s) => {
+            setSearch(s);
+            setPage(0);
+            setTab("inventory");
+          }}
+        />
+      ) : tab === "experiments" ? (
+        <Experiments catalog={catalog.data ?? undefined} />
+      ) : tab === "inventory" ? (
         <ReadState loading={loading} error={error} retry={refresh}>
           {data && !data.rows.length ? (
             <Empty text="Registra tu primer rollo" />
@@ -320,9 +367,15 @@ export function InventoryPage() {
                     </span>
                     <small>{l.brand}</small>
                   </div>
-                  <h2>
-                    {l.kind} · {l.color}
-                  </h2>
+                  <div className="roll-color-title">
+                    <span
+                      className="color-dot"
+                      style={{ backgroundColor: l.color_hex ?? "#d7cfca" }}
+                    />
+                    <h2>
+                      {l.kind} · {l.color}
+                    </h2>
+                  </div>
                   {l.financing && l.financing !== "cash" && (
                     <p>
                       <span className="pill">
@@ -360,6 +413,20 @@ export function InventoryPage() {
                     </div>
                   </dl>
                   <div className="card-actions">
+                    <button
+                      className="button secondary"
+                      onClick={() => editLot(l)}
+                    >
+                      Editar color y filamento
+                    </button>
+                    {l.purchase && (
+                      <button
+                        className="button secondary"
+                        onClick={() => setEditPurchase(l.purchase!.id)}
+                      >
+                        Editar forma de compra
+                      </button>
+                    )}
                     <button
                       className="button secondary"
                       onClick={() => count(l)}
@@ -497,6 +564,12 @@ export function InventoryPage() {
           </div>
           {history.data && <Pagination data={history.data} onPage={setPage} />}
         </ReadState>
+      )}
+      {editPurchase && (
+        <PurchaseEditor
+          id={editPurchase}
+          onClose={() => setEditPurchase(null)}
+        />
       )}
       {form && <OperationForm {...form} onClose={() => setForm(null)} />}
     </>

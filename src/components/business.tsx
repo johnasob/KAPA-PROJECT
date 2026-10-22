@@ -23,7 +23,8 @@ export type Field = {
     | "datetime-local"
     | "textarea"
     | "select"
-    | "url";
+    | "url"
+    | "color";
   required?: boolean;
   min?: number;
   max?: number;
@@ -123,7 +124,7 @@ export function OperationForm({
   extra?: Record<string, Json | undefined>;
   checks?: { name: string; label: string }[];
   onClose: () => void;
-  onSaved?: () => void;
+  onSaved?: (result: Json) => void;
   label?: string;
 }) {
   const operation = useOperation();
@@ -189,9 +190,17 @@ export function OperationForm({
     "lot_purchase",
     "printer_save",
     "purchase_create",
+    "purchase_reclassify",
   ].includes(action);
+  const previousFinancing = useRef<string | undefined>(financing);
   useEffect(() => {
-    if (isPurchase && financing === "credit_card") setValue("paid", "0");
+    if (
+      isPurchase &&
+      financing === "credit_card" &&
+      previousFinancing.current !== "credit_card"
+    )
+      setValue("paid", "0");
+    previousFinancing.current = financing;
   }, [financing, isPurchase, setValue]);
   async function submit(values: Record<string, string>) {
     const normalized = { ...values };
@@ -204,7 +213,7 @@ export function OperationForm({
       ...checked,
     });
     if (result) {
-      onSaved?.();
+      onSaved?.(result);
       onClose();
     }
   }

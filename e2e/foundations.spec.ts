@@ -586,9 +586,8 @@ test("operación completa real: compra financiada, cotización, reservas, produc
     await d.getByLabel(/^Impresora/).selectOption(printer.data.id);
     await d.getByLabel(/^Horas de impresión/).fill("2");
     await d.getByLabel(/^Rollo \/ color 1/).selectOption(lot.data.id);
-    await d.getByLabel(/^Pieza \(g\)/).fill("10");
-    await d.getByLabel(/^Soportes/).fill("2");
-    await d.getByLabel(/^Purgado/).fill("3");
+    await d.getByLabel(/^Total de este color/).fill("15");
+    await d.getByLabel(/^Precio manual por unidad/).fill("10650");
     await d.getByRole("button", { name: "Crear cliente", exact: true }).click();
     await dialog("Nuevo cliente")
       .getByLabel(/^Nombre/)
@@ -611,7 +610,7 @@ test("operación completa real: compra financiada, cotización, reservas, produc
       .single();
     expect(quote.error).toBeNull();
     expect(quote.data?.price_total).toBe(21300);
-    expect(quote.data?.cost_total).toBe(7100);
+    expect(quote.data?.cost_total).toBe(3370);
     await page
       .getByRole("button", { name: "Convertir en pedido", exact: true })
       .click();
@@ -723,7 +722,9 @@ test("operación completa real: compra financiada, cotización, reservas, produc
     await page
       .getByRole("tab", { name: "Tablero Kanban", exact: true })
       .click();
-    await expect(page.locator(".kanban-column")).toHaveCount(9);
+    await expect(page.locator(".order-status-summary > button")).toHaveCount(9);
+    await expect(page.locator(".kanban-column")).toHaveCount(1);
+    await expect(page.locator(".kanban-column")).toContainText("Entregado");
     await page.getByRole("tab", { name: "Calendario", exact: true }).click();
     await page.getByLabel("Mes del calendario").fill("2030-01");
     await expect(
@@ -754,13 +755,13 @@ test("operación completa real: compra financiada, cotización, reservas, produc
       .getByRole("button", { name: "Liquidar utilidades", exact: true })
       .click();
     d = dialog("Liquidar utilidades 50 / 50");
-    await d.getByLabel(/^Utilidad para reservar/).fill("3200");
+    await d.getByLabel(/^Utilidad para reservar/).fill("6930");
     await save("Liquidar utilidades 50 / 50");
     let summary = await john.rpc("business_read", { p_section: "dashboard" });
     if (summary.error) throw summary.error;
     let dashboard = summary.data as unknown as Dashboard;
-    expect(dashboard.summary.cumulative_profit).toBe(13200);
-    expect(dashboard.summary.business_reserve).toBe(3200);
+    expect(dashboard.summary.cumulative_profit).toBe(16930);
+    expect(dashboard.summary.business_reserve).toBe(6930);
     expect(dashboard.partners[0].balance).toBe(3000);
     expect(dashboard.partners[1].balance).toBe(5000);
     await page
@@ -825,7 +826,11 @@ test("operación completa real: compra financiada, cotización, reservas, produc
     ]) {
       await page.goto(path);
       await expect(
-        page.locator(".business-stats,.resource-grid,.report-controls").first(),
+        page
+          .locator(
+            ".business-stats,.resource-grid,.report-controls,.kanban-board",
+          )
+          .first(),
       ).toBeVisible();
       expect(
         await page.evaluate(
@@ -981,6 +986,9 @@ test("marca, tarjeta sin caja negativa, saldos iniciales, minutos, insumos, edic
     expect(
       (cash.data as unknown as { summary: { cash: number } }).summary.cash,
     ).toBe(1000);
+    await page
+      .getByRole("tab", { name: "Rollos y existencias", exact: true })
+      .click();
     await expect(
       page.getByText("Tarjeta de crédito", { exact: true }),
     ).toBeVisible();
@@ -991,6 +999,9 @@ test("marca, tarjeta sin caja negativa, saldos iniciales, minutos, insumos, edic
     await d.getByLabel(/^Filamento actual/).fill("980");
     await d.getByLabel(/^Motivo/).fill("Conteo físico verificado");
     await save("Modificar filamento actual");
+    await page
+      .getByRole("tab", { name: "Pruebas y fallos", exact: true })
+      .click();
     await page
       .getByRole("button", { name: "Registrar prueba o fallo", exact: true })
       .click();
@@ -1029,7 +1040,7 @@ test("marca, tarjeta sin caja negativa, saldos iniciales, minutos, insumos, edic
     await piece.getByLabel(/^Horas de impresión/).fill("1");
     await piece.getByLabel("Minutos", { exact: true }).fill("30");
     await piece.getByLabel(/^Rollo/).selectOption(lot.data.id);
-    await piece.getByLabel(/^Pieza \(g\)/).fill("10");
+    await piece.getByLabel(/^Total de este color/).fill("10");
     await piece
       .getByRole("button", { name: "Agregar insumo", exact: true })
       .click();
@@ -1046,7 +1057,7 @@ test("marca, tarjeta sin caja negativa, saldos iniciales, minutos, insumos, edic
     await piece.getByLabel(/^Horas de impresión/).fill("0");
     await piece.getByLabel("Minutos", { exact: true }).fill("15");
     await piece.getByLabel(/^Rollo/).selectOption(lot.data.id);
-    await piece.getByLabel(/^Pieza \(g\)/).fill("5");
+    await piece.getByLabel(/^Total de este color/).fill("5");
     await save("Nueva cotización", "Guardar cotización");
     let quote = await admin
       .from("quotes")
@@ -1115,7 +1126,6 @@ test("marca, tarjeta sin caja negativa, saldos iniciales, minutos, insumos, edic
       .click();
     d = dialog("Entrega de piezas");
     await d.getByLabel(/^Total de unidades entregadas/).fill("1");
-    await d.getByLabel(/^Autorizo entregar/).check();
     await save("Entrega de piezas");
     await expect(
       item.getByText("1/2 entregadas", { exact: true }),
@@ -1218,7 +1228,7 @@ test("una base anterior muestra la actualización necesaria y recupera el espaci
       "utf8",
     ),
     current = readFileSync(
-      "supabase/migrations/20261022000100_workflow_refinements.sql",
+      "supabase/migrations/20261023000100_easy_operations.sql",
       "utf8",
     );
   function definition(source: string, prefix: string) {
@@ -1281,4 +1291,374 @@ test("una base anterior muestra la actualización necesaria y recupera el espaci
   await expect(
     page.getByRole("heading", { name: "Hola, John.", exact: true }),
   ).toBeVisible();
+});
+
+test("corregir compra a tarjeta, color resumido, pedido ya impreso sin anticipo y repetir impresión", async ({
+  page,
+}) => {
+  test.setTimeout(180000);
+  page.setDefaultTimeout(15000);
+  const john = client();
+  const signed = await john.auth.signInWithPassword({
+    email: email.john,
+    password,
+  });
+  if (signed.error) throw signed.error;
+  const uid = signed.data.user.id,
+    tag = "Operación sencilla " + run,
+    printerId = randomUUID(),
+    lotId = randomUUID();
+  const settings = await john.from("business_settings").select("*").single();
+  if (settings.error) throw settings.error;
+  const errors: string[] = [];
+  page.on("pageerror", (e) => errors.push(e.message));
+  async function op(
+    action: string,
+    data: Database["public"]["Functions"]["business_operate"]["Args"]["p_data"],
+  ) {
+    const r = await john.rpc("business_operate", {
+      p_action: action,
+      p_data: data,
+      p_request_id: randomUUID(),
+    });
+    if (r.error) throw r.error;
+    return r.data;
+  }
+  const dialog = (name: string) =>
+    page.getByRole("dialog", { name, exact: true });
+  async function save(name: string, button = "Guardar operación") {
+    const d = dialog(name);
+    await d.getByRole("button", { name: button, exact: true }).click();
+    await expect(d).not.toBeVisible();
+  }
+  async function close() {
+    await page
+      .getByRole("dialog")
+      .getByRole("button", { name: "Cerrar formulario", exact: true })
+      .click();
+  }
+  async function go(name: string) {
+    await page.getByRole("link", { name, exact: true }).click();
+  }
+  try {
+    const updated = await john.rpc("update_business_settings", {
+      p_changes: { energy_kwh_cost: 0, labor_hour_cost: 0 },
+      p_expected_version: settings.data.version,
+      p_request_id: randomUUID(),
+    });
+    if (updated.error) throw updated.error;
+    await op("printer_save", {
+      id: printerId,
+      name: tag,
+      model: "A1",
+      acquisition_cost: "16810476172.91",
+      useful_hours: 1,
+      power_kw: 0,
+    });
+    // Reproduce una compra histórica mal clasificada, sin inventar capital para ocultarla.
+    await op("lot_purchase", {
+      id: lotId,
+      brand: tag,
+      kind: "PLA",
+      color: "Sin identificar",
+      initial_grams: 1000,
+      total: 90000,
+      paid: 90000,
+      financing: "cash",
+      description: tag,
+      allow_negative_cash: true,
+      authorization_reason: "Compra histórica registrada con origen equivocado",
+    });
+    await login(page);
+    await go("Inventario");
+    await page
+      .getByRole("tab", { name: "Rollos y existencias", exact: true })
+      .click();
+    await page
+      .getByRole("button", { name: "Editar forma de compra", exact: true })
+      .click();
+    let d = dialog("Corregir compra y financiación");
+    await d.getByLabel(/^Forma de compra/).selectOption("credit_card");
+    await expect(d.getByLabel(/^Pago inicial/)).toHaveValue("0");
+    await d.getByLabel(/^Cuotas pendientes/).fill("3");
+    await d.getByLabel(/^Primer vencimiento/).fill("2030-01-01");
+    await d
+      .getByLabel(/^Motivo/)
+      .fill("El filamento se compró realmente con tarjeta");
+    await save("Corregir compra y financiación");
+    const cash = await john.rpc("business_read", { p_section: "cash" });
+    expect(
+      (cash.data as unknown as { summary: { cash: number } }).summary.cash,
+    ).toBe(0);
+    const purchase = await admin
+      .from("purchases")
+      .select("*")
+      .eq("lot_id", lotId)
+      .single();
+    if (purchase.error) throw purchase.error;
+    expect(purchase.data.financing).toBe("credit_card");
+    expect(purchase.data.paid_initial).toBe(0);
+    const debt = await admin
+      .from("debts")
+      .select("*")
+      .eq("purchase_id", purchase.data.id)
+      .single();
+    if (debt.error) throw debt.error;
+    expect(debt.data.principal).toBe(90000);
+    await page
+      .getByRole("button", { name: "Editar color y filamento", exact: true })
+      .click();
+    d = dialog("Editar filamento y color");
+    await d.getByLabel(/^Nombre del color/).fill("Vinotinto KAPA");
+    await d.getByLabel("Color visual", { exact: true }).fill("#4b081a");
+    await save("Editar filamento y color");
+    await page
+      .getByRole("tab", { name: "Resumen por color", exact: true })
+      .click();
+    await expect(
+      page.getByRole("heading", { name: "Vinotinto KAPA", exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByLabel("Color Vinotinto KAPA", { exact: true }),
+    ).toHaveCSS("background-color", "rgb(75, 8, 26)");
+    await page.screenshot({
+      path: "/tmp/kapa-filamento-resumen.png",
+      fullPage: true,
+    });
+    await op("cash_create", {
+      category: "capital",
+      amount: 50000,
+      description: "Aporte real de prueba",
+    });
+    await op("debt_pay", {
+      debt_id: debt.data.id,
+      principal: 30000,
+      interest: 0,
+    });
+    await go("Finanzas");
+    await page
+      .getByRole("tab", { name: "Deudas y cuotas", exact: true })
+      .click();
+    await page
+      .getByRole("button", { name: "Editar deuda / compra", exact: true })
+      .click();
+    d = dialog("Corregir compra y financiación");
+    await expect(d.getByLabel(/^Pago inicial/)).toHaveValue("0");
+    await expect(d.getByLabel(/^Cuotas pendientes/)).toHaveValue("2");
+    await d.getByLabel(/^Interés por cuota/).fill("50");
+    await d
+      .getByLabel(/^Motivo/)
+      .fill("El banco confirmó dos cuotas pendientes");
+    await save("Corregir compra y financiación");
+    expect(
+      (
+        await admin
+          .from("debt_payments")
+          .select("id")
+          .eq("debt_id", debt.data.id)
+      ).data,
+    ).toHaveLength(1);
+    expect(
+      (
+        await admin
+          .from("debt_installments")
+          .select("id")
+          .eq("debt_id", debt.data.id)
+          .is("superseded_at", null)
+      ).data,
+    ).toHaveLength(2);
+    const standalone = randomUUID();
+    await op("loan_create", {
+      id: standalone,
+      description: tag + " préstamo",
+      amount: 5000,
+      installments: 2,
+      next_due: "2030-01-01",
+    });
+    await page.reload();
+    await page
+      .getByRole("tab", { name: "Deudas y cuotas", exact: true })
+      .click();
+    await page
+      .locator(".resource-card")
+      .filter({ hasText: tag + " préstamo" })
+      .getByRole("button", { name: "Editar deuda / compra", exact: true })
+      .click();
+    d = dialog("Editar deuda y cuotas pendientes");
+    await d.getByLabel(/^Capital total pactado/).fill("7000");
+    await d
+      .getByLabel(/^Motivo/)
+      .fill("Corrección del capital pactado sin recibir dinero nuevo");
+    await save("Editar deuda y cuotas pendientes");
+    const corrected = await john.rpc("business_read", { p_section: "cash" });
+    expect(
+      (corrected.data as unknown as { summary: { cash: number } }).summary.cash,
+    ).toBe(25000);
+    expect(
+      (
+        await admin
+          .from("debts")
+          .select("principal")
+          .eq("description", tag + " préstamo")
+          .single()
+      ).data?.principal,
+    ).toBe(7000);
+    await go("Pedidos y producción");
+    await page
+      .getByRole("button", { name: "Nuevo pedido", exact: true })
+      .click();
+    d = dialog("Nuevo pedido");
+    await d.getByLabel(/^Descripción general/).fill(tag);
+    await d
+      .getByLabel(/^Descripción del producto/)
+      .fill("Pieza vinotinto ya impresa");
+    await d.getByLabel(/^Impresora/).selectOption(printerId);
+    await d.getByLabel(/^Rollo \/ color 1/).selectOption(lotId);
+    await d.getByLabel(/^Total de este color/).fill("10");
+    await d.getByLabel(/^Horas de impresión/).fill("1");
+    await expect(d.getByText(/Amortización.*10/)).toBeVisible();
+    await expect(
+      d.getByRole("button", { name: /×3.*Recomendado/ }),
+    ).toContainText("2.970");
+    await d.getByRole("button", { name: "Crear cliente", exact: true }).click();
+    await dialog("Nuevo cliente")
+      .getByLabel(/^Nombre/)
+      .fill(tag);
+    await save("Nuevo cliente");
+    const customer = await admin
+      .from("customers")
+      .select("id")
+      .eq("name", tag)
+      .single();
+    if (customer.error) throw customer.error;
+    await expect(d.getByLabel(/^Cliente/)).toHaveValue(customer.data.id);
+    await expect(d.getByLabel(/^Total de este color/)).toHaveValue("10");
+    await d.getByLabel(/^Fecha de entrega/).fill("2030-01-01T12:00");
+    await d.getByLabel(/^Estas piezas ya están impresas/).check();
+    await d.getByLabel(/^Estado real/).selectOption("delivered");
+    await save("Nuevo pedido", "Guardar pedido");
+    const order = await admin
+      .from("orders")
+      .select("*")
+      .eq("description", tag)
+      .single();
+    if (order.error) throw order.error;
+    expect(order.data.status).toBe("delivered");
+    expect(order.data.price_total).toBe(2970);
+    expect(order.data.estimated_cost).toBe(990);
+    const production = await admin
+      .from("production_runs")
+      .select("depreciation_cost,order_lines!inner(order_id)")
+      .eq("order_lines.order_id", order.data.id)
+      .single();
+    if (production.error) throw production.error;
+    expect(production.data.depreciation_cost).toBe(90);
+    const lot = await admin
+      .from("inventory_lots")
+      .select("on_hand_grams")
+      .eq("id", lotId)
+      .single();
+    expect(lot.data?.on_hand_grams).toBe(990);
+    await expect(
+      page.getByRole("dialog").getByText("Pendiente", { exact: true }),
+    ).toBeVisible();
+    // Corregir el estado de un trabajo ya registrado no devuelve material consumido.
+    await page
+      .getByRole("button", { name: "Estado y entrega", exact: true })
+      .click();
+    d = dialog("Estado y fecha de entrega");
+    await d.getByLabel(/^Estado/).selectOption("printing");
+    await d
+      .getByLabel(/^Motivo si corriges/)
+      .fill("La entrega se marcó por error al registrar");
+    await save("Estado y fecha de entrega");
+    await close();
+    await expect(
+      page.getByRole("button", { name: "Ver quiénes deben", exact: true }),
+    ).toBeVisible();
+    await page
+      .getByRole("button", { name: "Ver quiénes deben", exact: true })
+      .click();
+    await expect(
+      page.locator(".order-card").filter({ hasText: tag }),
+    ).toContainText("Sin anticipo");
+    await page.locator(".order-card").filter({ hasText: tag }).click();
+    await page
+      .getByRole("link", {
+        name: "Cotizar otra vez esta impresión",
+        exact: true,
+      })
+      .click();
+    d = dialog("Repetir impresión en cotización");
+    await expect(d.getByLabel(/^Total de este color/)).toHaveValue("10");
+    await d.getByLabel(/^Descripción general/).fill(tag + " repetido");
+    await d.getByRole("button", { name: "Repetir pieza", exact: true }).click();
+    await expect(d.locator(".quote-line-editor")).toHaveCount(2);
+    await save("Repetir impresión en cotización", "Guardar cotización");
+    const repeated = await admin
+      .from("quotes")
+      .select("price_total")
+      .eq("description", tag + " repetido")
+      .single();
+    expect(repeated.data?.price_total).toBe(5940);
+    await go("Pedidos y producción");
+    await expect(
+      page.getByRole("tab", { name: "Tablero Kanban", exact: true }),
+    ).toHaveAttribute("aria-selected", "true");
+    await expect(
+      page.locator(".kanban-column").filter({ hasText: "Imprimiendo" }),
+    ).toContainText(tag);
+    await page.screenshot({
+      path: "/tmp/kapa-pedidos-tablero.png",
+      fullPage: true,
+    });
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.getByRole("button", { name: "Abrir menú", exact: true }).click();
+    await go("Inventario");
+    await expect(
+      page.getByRole("heading", { name: "Vinotinto KAPA", exact: true }),
+    ).toBeVisible();
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+    ).toBe(true);
+    await page.screenshot({
+      path: "/tmp/kapa-filamento-mobile.png",
+      fullPage: true,
+    });
+    expect(errors).toEqual([]);
+  } finally {
+    const cleanup = `delete from public.order_line_payments where cash_entry_id in(select id from public.cash_entries where created_by='${uid}');delete from public.order_deliveries where created_by='${uid}';delete from public.cash_entries where created_by='${uid}';delete from public.debt_payments where created_by='${uid}';delete from public.debt_installments where debt_id in(select id from public.debts where created_by='${uid}');delete from public.debts where created_by='${uid}';delete from public.purchases where created_by='${uid}';delete from public.inventory_movements where created_by='${uid}';delete from public.production_runs where created_by='${uid}';delete from public.material_reservations where order_id in(select id from public.orders where created_by='${uid}');delete from public.order_lines where order_id in(select id from public.orders where created_by='${uid}');delete from public.orders where created_by='${uid}';delete from public.quote_lines where quote_id in(select id from public.quotes where created_by='${uid}');delete from public.quotes where created_by='${uid}';delete from public.inventory_lots where id='${lotId}';delete from public.materials where brand='${tag}';delete from public.printers where id='${printerId}';delete from public.customers where name='${tag}';`;
+    execFileSync(
+      "docker",
+      [
+        "exec",
+        "-i",
+        "supabase_db_KAPA-PROJECT",
+        "psql",
+        "-U",
+        "postgres",
+        "-d",
+        "postgres",
+        "-v",
+        "ON_ERROR_STOP=1",
+      ],
+      { input: cleanup, stdio: ["pipe", "ignore", "pipe"] },
+    );
+    const current = await john
+      .from("business_settings")
+      .select("version")
+      .single();
+    if (current.error) throw current.error;
+    const restore = await john.rpc("update_business_settings", {
+      p_changes: {
+        energy_kwh_cost: settings.data.energy_kwh_cost,
+        labor_hour_cost: settings.data.labor_hour_cost,
+      },
+      p_expected_version: current.data.version,
+      p_request_id: randomUUID(),
+    });
+    if (restore.error) throw restore.error;
+  }
 });

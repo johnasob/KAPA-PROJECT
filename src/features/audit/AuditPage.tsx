@@ -48,6 +48,8 @@ const operations: Record<string, string> = {
   DELETE: "Eliminación",
 };
 const fields: Record<string, string> = {
+  color_hex: "Color visual",
+  superseded_at: "Plan de cuotas reemplazado",
   financing: "Forma de financiación",
   quantity: "Cantidad de piezas",
   delivered_quantity: "Unidades entregadas",

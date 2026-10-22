@@ -295,6 +295,7 @@ export type Database = {
           interest_due: number
           number: number
           principal_due: number
+          superseded_at: string | null
         }
         Insert: {
           debt_id: string
@@ -303,6 +304,7 @@ export type Database = {
           interest_due: number
           number: number
           principal_due: number
+          superseded_at?: string | null
         }
         Update: {
           debt_id?: string
@@ -311,6 +313,7 @@ export type Database = {
           interest_due?: number
           number?: number
           principal_due?: number
+          superseded_at?: string | null
         }
         Relationships: [
           {
@@ -384,6 +387,7 @@ export type Database = {
           principal: number
           purchase_id: string | null
           supplier_id: string | null
+          version: number
           voided_at: string | null
         }
         Insert: {
@@ -399,6 +403,7 @@ export type Database = {
           principal: number
           purchase_id?: string | null
           supplier_id?: string | null
+          version?: number
           voided_at?: string | null
         }
         Update: {
@@ -414,6 +419,7 @@ export type Database = {
           principal?: number
           purchase_id?: string | null
           supplier_id?: string | null
+          version?: number
           voided_at?: string | null
         }
         Relationships: [
@@ -445,6 +451,7 @@ export type Database = {
           purchased_on: string
           state: string
           supplier_id: string | null
+          version: number
         }
         Insert: {
           cost_per_gram?: number | null
@@ -457,6 +464,7 @@ export type Database = {
           purchased_on: string
           state?: string
           supplier_id?: string | null
+          version?: number
         }
         Update: {
           cost_per_gram?: number | null
@@ -469,6 +477,7 @@ export type Database = {
           purchased_on?: string
           state?: string
           supplier_id?: string | null
+          version?: number
         }
         Relationships: [
           {
@@ -652,6 +661,7 @@ export type Database = {
         Row: {
           brand: string
           color: string
+          color_hex: string | null
           created_at: string
           id: string
           kind: string
@@ -659,6 +669,7 @@ export type Database = {
         Insert: {
           brand: string
           color: string
+          color_hex?: string | null
           created_at?: string
           id?: string
           kind: string
@@ -666,6 +677,7 @@ export type Database = {
         Update: {
           brand?: string
           color?: string
+          color_hex?: string | null
           created_at?: string
           id?: string
           kind?: string
@@ -1333,6 +1345,7 @@ export type Database = {
           purchased_on: string
           supplier_id: string | null
           total: number
+          version: number
           voided_at: string | null
         }
         Insert: {
@@ -1349,6 +1362,7 @@ export type Database = {
           purchased_on: string
           supplier_id?: string | null
           total: number
+          version?: number
           voided_at?: string | null
         }
         Update: {
@@ -1365,6 +1379,7 @@ export type Database = {
           purchased_on?: string
           supplier_id?: string | null
           total?: number
+          version?: number
           voided_at?: string | null
         }
         Relationships: [

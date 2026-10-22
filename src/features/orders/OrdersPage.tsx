@@ -1,3 +1,4 @@
+import { QuoteComposer } from "../quotes/QuotesPage";
 import { AddPiece } from "./AddPiece";
 import { useEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
@@ -497,6 +498,20 @@ function OrderDetails({ id, onClose }: { id: string; onClose: () => void }) {
         </div>
       </div>
       <div className="card-actions">
+        <Link
+          className="button secondary"
+          to={"/cotizaciones?repetir=" + order.id}
+        >
+          Cotizar otra vez esta impresión
+        </Link>
+        {order.status !== "cancelled" && (
+          <button
+            className="button secondary"
+            onClick={() => setMode("update")}
+          >
+            Estado y entrega
+          </button>
+        )}
         {order.balance > 0 && order.status !== "cancelled" && (
           <button className="button primary" onClick={() => setMode("payment")}>
             Registrar cobro
@@ -519,12 +534,7 @@ function OrderDetails({ id, onClose }: { id: string; onClose: () => void }) {
             <button className="button secondary" onClick={() => setMode("add")}>
               Agregar pieza personalizada
             </button>
-            <button
-              className="button secondary"
-              onClick={() => setMode("update")}
-            >
-              Estado y entrega
-            </button>
+
             <button
               className="button secondary"
               onClick={() => setMode("reserve")}
@@ -834,17 +844,7 @@ function OrderDetails({ id, onClose }: { id: string; onClose: () => void }) {
                   ]
                 : []
           }
-          checks={
-            piece.action === "deliver"
-              ? [
-                  {
-                    name: "confirm_unpaid_delivery",
-                    label:
-                      "Autorizo entregar estas piezas con saldo pendiente de pago.",
-                  },
-                ]
-              : []
-          }
+          checks={[]}
           onClose={() => setPiece(null)}
         />
       )}
@@ -890,8 +890,16 @@ function OrderDetails({ id, onClose }: { id: string; onClose: () => void }) {
         <OperationForm
           title="Estado y fecha de entrega"
           action="order_update"
-          extra={{ order_id: order.id, version: order.version }}
-          description="Confirmar el pedido reserva los gramos cotizados; no los consume. Entregar exige registrar la producción real."
+          extra={{
+            order_id: order.id,
+            version: order.version,
+            confirm_without_deposit: true,
+          }}
+          description={
+            "Puedes elegir el estado real sin recorrer todos los pasos. Saldo pendiente: " +
+            money(order.balance) +
+            ". Si ya imprimiste y aún no registraste producción, confirma abajo el consumo indicado en la cotización; para cambiar cantidades reales usa Registrar producción."
+          }
           initial={{
             status: order.status,
             deposit_percent: String(order.deposit_percent),
@@ -922,6 +930,11 @@ function OrderDetails({ id, onClose }: { id: string; onClose: () => void }) {
               max: 100,
               required: true,
             },
+            {
+              name: "correction_reason",
+              label: "Motivo si corriges un pedido ya entregado",
+              type: "textarea",
+            },
             { name: "notes", label: "Observaciones", type: "textarea" },
           ]}
           checks={[
@@ -931,14 +944,9 @@ function OrderDetails({ id, onClose }: { id: string; onClose: () => void }) {
                 "Autorizo expresamente cambiar la fecha comprometida con el cliente.",
             },
             {
-              name: "confirm_without_deposit",
+              name: "confirm_record_completed",
               label:
-                "Autorizo confirmar producción aunque todavía falte el anticipo.",
-            },
-            {
-              name: "confirm_unpaid_delivery",
-              label:
-                "Autorizo entregar a crédito con saldo pendiente; la utilidad no será realizada hasta cobrarlo.",
+                "Las piezas faltantes ya fueron impresas y confirmo sus gramos, horas e insumos cotizados como consumo real.",
             },
           ]}
           onClose={formClose}
@@ -1036,7 +1044,10 @@ function OrderDetails({ id, onClose }: { id: string; onClose: () => void }) {
 }
 export function OrdersPage() {
   const [params, setParams] = useSearchParams();
-  const [view, setView] = useState("list"),
+  const catalog = useCatalog();
+  const [creating, setCreating] = useState(false),
+    [statusFilter, setStatusFilter] = useState("all");
+  const [view, setView] = useState("kanban"),
     [page, setPage] = useState(0),
     [search, setSearch] = useState(""),
     [month, setMonth] = useState(today().slice(0, 7));
@@ -1045,7 +1056,11 @@ export function OrdersPage() {
       ? "calendar"
       : view === "receivables"
         ? "receivables"
-        : "orders",
+        : view === "balances"
+          ? "balances"
+          : statusFilter !== "all"
+            ? "orders_" + statusFilter
+            : "orders",
     {
       page,
       search,
@@ -1062,33 +1077,56 @@ export function OrdersPage() {
   });
   const choose = (id: string) => setParams({ pedido: id });
   const rows = data?.rows ?? [];
-  const renderCard = (o: Order) => (
-    <button className="order-card" key={o.id} onClick={() => choose(o.id)}>
-      <div className="resource-top">
-        <span>K-{o.number}</span>
-        <span className={"priority priority-" + o.priority}>
-          {["Normal", "Alta", "Urgente"][o.priority]}
-        </span>
-      </div>
-      <h3>{o.description}</h3>
-      <p>{o.customer_name}</p>
-      <span className="pill">{statusNames[o.status]}</span>
-      <div className="order-card-footer">
-        <strong>{money(o.price_total)}</strong>
-        <span
-          className={
-            new Date(o.promised_at) < new Date() &&
-            !["delivered", "cancelled"].includes(o.status)
-              ? "text-danger"
-              : ""
-          }
-        >
-          {dateTime(o.promised_at)}
-        </span>
-      </div>
-      <small>Pendiente: {money(o.balance)}</small>
-    </button>
-  );
+  const renderCard = (o: Order) => {
+    const units = o.lines.reduce((n, l) => n + l.quantity, 0),
+      produced = o.lines.reduce((n, l) => n + l.produced, 0);
+    return (
+      <button className="order-card" key={o.id} onClick={() => choose(o.id)}>
+        <div className="resource-top">
+          <span>K-{o.number}</span>
+          <span className={"priority priority-" + o.priority}>
+            {["Normal", "Alta", "Urgente"][o.priority]}
+          </span>
+        </div>
+        <h3>{o.description}</h3>
+        <p>{o.customer_name}</p>
+        <span className="pill">{statusNames[o.status]}</span>
+        <div className="order-card-footer">
+          <strong>{money(o.price_total)}</strong>
+          <span
+            className={
+              new Date(o.promised_at) < new Date() &&
+              !["delivered", "cancelled"].includes(o.status)
+                ? "text-danger"
+                : ""
+            }
+          >
+            {dateTime(o.promised_at)}
+          </span>
+        </div>
+        <div className="piece-progress">
+          <span>
+            {o.paid === 0 && o.price_total > 0
+              ? "Sin anticipo"
+              : o.balance > 0
+                ? "Con abono"
+                : "Pagado"}
+          </span>
+          <span>
+            {produced}/{units} piezas impresas
+          </span>
+        </div>
+        <progress
+          aria-label={"Producción pedido K-" + o.number}
+          max={Math.max(1, units)}
+          value={produced}
+        />
+        <small className={o.balance > 0 ? "text-danger" : ""}>
+          Pendiente: {money(o.balance)}
+        </small>
+      </button>
+    );
+  };
   return (
     <>
       <PageTitle
@@ -1096,15 +1134,67 @@ export function OrdersPage() {
         title="Del encargo a la entrega."
         description="Reservas, producción, anticipos y compromisos en un mismo lugar."
         action={
-          <Link className="button primary" to="/cotizaciones">
+          <button className="button primary" onClick={() => setCreating(true)}>
             <Plus size={17} />
-            Cotizar nuevo pedido
-          </Link>
+            Nuevo pedido
+          </button>
         }
       />
+      <div
+        className="order-status-summary"
+        aria-label="Resumen visual de pedidos"
+      >
+        {Object.entries(statusNames).map(([status, label]) => (
+          <button
+            key={status}
+            className={
+              "status-tile status-" +
+              status +
+              (statusFilter === status ? " selected" : "")
+            }
+            onClick={() => {
+              setStatusFilter(status);
+              setView("kanban");
+              setPage(0);
+            }}
+          >
+            <span>{label}</span>
+            <strong>{data?.state_counts?.[status] ?? 0}</strong>
+          </button>
+        ))}
+      </div>
+      {!!data?.unpaid_orders && (
+        <Notice type="info">
+          {data.unpaid_orders === 1
+            ? "Hay 1 pedido"
+            : `Hay ${data.unpaid_orders} pedidos`}{" "}
+          con saldo pendiente.{" "}
+          <button
+            className="text-button"
+            onClick={() => {
+              setView("balances");
+              setPage(0);
+            }}
+          >
+            Ver quiénes deben
+          </button>
+        </Notice>
+      )}
+      {creating && catalog.data && (
+        <QuoteComposer
+          mode="order"
+          catalog={catalog.data}
+          onClose={() => setCreating(false)}
+          onSaved={(id) => {
+            setCreating(false);
+            choose(id);
+          }}
+        />
+      )}
       <Tabs
         items={[
           { id: "list", label: "Lista" },
+          { id: "balances", label: "Todos los saldos" },
           { id: "receivables", label: "Entregado por cobrar" },
           { id: "kanban", label: "Tablero Kanban" },
           { id: "calendar", label: "Calendario" },
@@ -1122,6 +1212,25 @@ export function OrdersPage() {
           cobrar a la pieza correspondiente. Los pagos generales se reparten
           automáticamente.
         </Notice>
+      )}
+      {["kanban", "list"].includes(view) && (
+        <label className="field state-filter">
+          Filtrar estado
+          <select
+            value={statusFilter}
+            onChange={(e) => {
+              setStatusFilter(e.target.value);
+              setPage(0);
+            }}
+          >
+            <option value="all">Todos los estados</option>
+            {Object.entries(statusNames).map(([key, label]) => (
+              <option key={key} value={key}>
+                {label}
+              </option>
+            ))}
+          </select>
+        </label>
       )}
       <Toolbar
         search={search}
@@ -1210,21 +1319,29 @@ export function OrdersPage() {
                 </Link>
               }
             />
-          ) : ["list", "receivables"].includes(view) ? (
+          ) : ["list", "receivables", "balances"].includes(view) ? (
             <div className="resource-grid">{rows.map(renderCard)}</div>
           ) : view === "kanban" ? (
             <div className="kanban-board">
-              {Object.entries(statusNames).map(([status, label]) => (
-                <section className="kanban-column" key={status}>
-                  <h3>
-                    {label}{" "}
-                    <span>
-                      {rows.filter((o) => o.status === status).length}
-                    </span>
-                  </h3>
-                  {rows.filter((o) => o.status === status).map(renderCard)}
-                </section>
-              ))}
+              {Object.entries(statusNames)
+                .filter(([status]) =>
+                  statusFilter === "all"
+                    ? (data?.state_counts?.[status] ??
+                        rows.filter((o) => o.status === status).length) > 0
+                    : status === statusFilter,
+                )
+                .map(([status, label]) => (
+                  <section className="kanban-column" key={status}>
+                    <h3>
+                      {label}{" "}
+                      <span>
+                        {data?.state_counts?.[status] ??
+                          rows.filter((o) => o.status === status).length}
+                      </span>
+                    </h3>
+                    {rows.filter((o) => o.status === status).map(renderCard)}
+                  </section>
+                ))}
             </div>
           ) : (
             <div className="calendar-grid">

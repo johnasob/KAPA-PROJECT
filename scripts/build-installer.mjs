@@ -12,6 +12,7 @@ const operations = body("supabase/migrations/20261021000100_operations.sql");
 const refinements = body(
   "supabase/migrations/20261022000100_workflow_refinements.sql",
 );
+const easy = body("supabase/migrations/20261023000100_easy_operations.sql");
 const installer = `-- KAPA 3D: instalación o actualización completa. Ejecutar en SQL Editor.
 -- Conserva cuentas, perfiles, configuración y operaciones existentes.
 -- No requiere claves ni contraseñas. Si hay una instalación parcial, revierte todo.
@@ -40,6 +41,9 @@ begin
   if to_regclass('public.opening_balances') is null then
     execute $kapa_refinements$${refinements}$kapa_refinements$;
   end if;
+  if to_regprocedure('private.op_replan_debt(uuid,jsonb)') is null then
+    execute $kapa_easy$${easy}$kapa_easy$;
+  end if;
   foreach table_name in array array['order_line_payments','order_deliveries','opening_balances','print_experiments','customers','suppliers','products','printers','materials','inventory_lots','quotes','quote_lines','orders','order_lines','material_reservations','production_runs','inventory_movements','purchases','debts','debt_installments','maintenance_records','cash_entries','debt_payments','settlements','partner_allocations','partner_advances','advance_compensations','partner_withdrawals','order_files'] loop
     if to_regclass('public.'||table_name) is null then raise exception 'Falta la tabla %. No se modificaron datos existentes.',table_name; end if;
   end loop;
@@ -50,6 +54,7 @@ end;
 $kapa_install$;
 notify pgrst, 'reload schema';
 commit;
+select details as actualizacion_de_registros from private.kapa_updates where name='easy_operations_20261023';
 `;
 mkdirSync("release", { recursive: true });
 writeFileSync("release/KAPA-3D-instalacion.sql", installer);

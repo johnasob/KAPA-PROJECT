@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   calculateCost,
+  totalColorMaterial,
   piecePayments,
   csvText,
   safeUrl,
@@ -26,6 +27,7 @@ const printer: Row<"printers"> = {
   created_at: "",
 };
 const lot: Lot = {
+  version: 1,
   id: "l",
   material_id: "m",
   initial_grams: 1000,
@@ -60,6 +62,54 @@ const inputs: CostInputs = {
   manual_price: "",
 };
 describe("costos económicos de impresión", () => {
+  it("limita incluso una amortización de miles de millones al 10% del material", () => {
+    const c = calculateCost(
+      inputs,
+      { ...printer, acquisition_cost: 16810476172.91, useful_hours: 1 },
+      [lot],
+      1000,
+      5000,
+    );
+    expect(c.depreciation_cost).toBe(135);
+    expect(c.depreciation_cost).toBeLessThanOrEqual(c.material_cost * 0.1);
+  });
+  it("redondea el límite hacia abajo y respeta amortizaciones menores", () => {
+    const tiny = calculateCost(
+      {
+        ...inputs,
+        materials: [
+          {
+            lot_id: "l",
+            piece_grams: "0.05",
+            support_grams: "0",
+            waste_grams: "0",
+          },
+        ],
+      },
+      printer,
+      [{ ...lot, purchase_cost: 1000, initial_grams: 1000 }],
+      1000,
+      5000,
+    );
+    expect(tiny.material_cost).toBe(0.05);
+    expect(tiny.depreciation_cost).toBe(0);
+    expect(
+      calculateCost(
+        inputs,
+        { ...printer, acquisition_cost: 1000 },
+        [lot],
+        1000,
+        5000,
+      ).depreciation_cost,
+    ).toBe(2);
+  });
+  it("conserva el consumo antiguo al reunir pieza, soportes y purga en un total por color", () => {
+    expect(totalColorMaterial(inputs.materials[0])).toMatchObject({
+      piece_grams: "15",
+      support_grams: "0",
+      waste_grams: "0",
+    });
+  });
   it("redondea medio centavo sin convertir antes una tasa periódica a float", () => {
     const zero = {
       ...inputs,
@@ -95,22 +145,22 @@ describe("costos económicos de impresión", () => {
     const c = calculateCost(inputs, printer, [lot], 1000, 5000);
     expect(c).toMatchObject({
       material_cost: 1350,
-      depreciation_cost: 2000,
+      depreciation_cost: 135,
       energy_cost: 200,
       labor_cost: 2500,
       painting_cost: 1750,
       extras_cost: 1000,
-      total: 8800,
-      price: 26400,
-      profit: 17600,
+      total: 6935,
+      price: 20805,
+      profit: 13870,
       markup: 200,
     });
     expect(c.margin).toBeCloseTo(66.666666, 4);
   });
   it.each([
-    ["2", 17600],
-    ["3", 26400],
-    ["4", 35200],
+    ["2", 13870],
+    ["3", 20805],
+    ["4", 27740],
   ])("multiplicador %s", (multiplier, price) =>
     expect(
       calculateCost({ ...inputs, multiplier }, printer, [lot], 1000, 5000)
@@ -126,8 +176,8 @@ describe("costos económicos de impresión", () => {
       5000,
     );
     expect(c.price).toBe(5000);
-    expect(c.profit).toBe(-3800);
-    expect(c.margin).toBe(-76);
+    expect(c.profit).toBe(-1935);
+    expect(c.margin).toBe(-38.7);
   });
   it("exige configurar costos antes de mostrar una cotización", () =>
     expect(() =>
@@ -165,8 +215,8 @@ describe("costos económicos de impresión", () => {
       1000,
       5000,
     );
-    expect(c.total).toBe(137);
-    expect(c.price).toBe(411);
+    expect(c.total).toBe(39.7);
+    expect(c.price).toBe(119.1);
   });
   it.each(["-1", "NaN", "Infinity"])("rechaza horas inválidas %s", (hours) =>
     expect(() =>
@@ -258,7 +308,7 @@ describe("insumos por pieza y duración", () => {
       1000,
       5000,
     );
-    expect(full.total - half.total).toBe(550);
+    expect(full.total - half.total).toBe(50);
   });
 });
 

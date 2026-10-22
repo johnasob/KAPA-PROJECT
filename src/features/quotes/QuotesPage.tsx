@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Plus, Trash2 } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -18,6 +18,9 @@ import {
 } from "../../components/business";
 import {
   useBusiness,
+  readBusiness,
+  statusNames,
+  type Order,
   useOperation,
   calculateCost,
   type Quote,
@@ -51,19 +54,30 @@ const headerSchema = z.object({
     ),
   notes: z.string().max(5000),
 });
-function QuoteComposer({
+export function QuoteComposer({
   catalog,
   onClose,
   quote,
+  template,
+  mode = "quote",
+  onSaved,
 }: {
+  mode?: "quote" | "order";
+  template?: Quote | Order;
+  onSaved?: (id: string) => void;
   quote?: Quote;
   catalog: Catalog;
   onClose: () => void;
 }) {
   const { settings } = useWorkspace();
+  const source = quote ?? template;
+  const [createdCustomer, setCreatedCustomer] = useState<string | null>(null),
+    [promisedAt, setPromisedAt] = useState(""),
+    [initialStatus, setInitialStatus] = useState("confirmed"),
+    [alreadyPrinted, setAlreadyPrinted] = useState(false);
   const [lines, setLines] = useState<QuoteDraft[]>(
-      quote
-        ? quote.lines.map((l) => ({
+      source
+        ? source.lines.map((l) => ({
             ...freshLine(),
             ...((l.cost_snapshot as Record<string, unknown>)
               .inputs as Partial<CostInputs>),
@@ -81,18 +95,28 @@ function QuoteComposer({
   const {
     register,
     handleSubmit,
+    setValue,
     formState: { errors },
   } = useForm<z.infer<typeof headerSchema>>({
     resolver: zodResolver(headerSchema),
     defaultValues: {
-      customer_id: quote?.customer_id ?? "",
-      description: quote?.description ?? "",
+      customer_id: source?.customer_id ?? "",
+      description: source?.description ?? "",
       deposit_percent: String(
-        quote?.deposit_percent ?? settings.default_deposit_percent,
+        source?.deposit_percent ?? settings.default_deposit_percent,
       ),
-      notes: quote?.notes ?? "",
+      notes: source?.notes ?? "",
     },
   });
+  useEffect(() => {
+    if (
+      createdCustomer &&
+      catalog.customers.some((c) => c.id === createdCustomer)
+    ) {
+      setValue("customer_id", createdCustomer, { shouldValidate: true });
+      setCreatedCustomer(null);
+    }
+  }, [createdCustomer, catalog.customers, setValue]);
   let totalPrice = new Decimal(0),
     totalCost = new Decimal(0);
   for (const line of lines) {
@@ -120,6 +144,8 @@ function QuoteComposer({
   async function submit(header: z.infer<typeof headerSchema>) {
     setIssue(null);
     try {
+      if (mode === "order" && !promisedAt)
+        throw Error("Indica la fecha de entrega del pedido.");
       for (const line of lines) {
         if (
           !line.description.trim() ||
@@ -141,35 +167,118 @@ function QuoteComposer({
         );
       }
       const result = await operation.run(
-        quote ? "quote_update" : "quote_create",
+        mode === "order"
+          ? "order_quick_create"
+          : quote
+            ? "quote_update"
+            : "quote_create",
         {
           ...(quote ? { id: quote.id, version: quote.version } : {}),
           ...header,
+          ...(mode === "order"
+            ? {
+                promised_at: promisedAt + "-05:00",
+                initial_status: initialStatus,
+                already_printed: alreadyPrinted,
+              }
+            : {}),
           lines: lines.map((l) => ({
             ...l,
             materials: l.materials.map((m) => ({ ...m })),
           })),
         },
       );
-      if (result) onClose();
+      if (result) {
+        if (
+          typeof result === "object" &&
+          !Array.isArray(result) &&
+          typeof result.id === "string"
+        )
+          onSaved?.(result.id);
+        onClose();
+      }
     } catch (e) {
       setIssue(e instanceof Error ? e.message : "Revisa los datos.");
     }
   }
   return (
     <Modal
-      title={quote ? "Editar cotización" : "Nueva cotización"}
+      title={
+        mode === "order"
+          ? "Nuevo pedido"
+          : quote
+            ? "Editar cotización"
+            : template
+              ? "Repetir impresión en cotización"
+              : "Nueva cotización"
+      }
       onClose={() => {
         if (!operation.busy) onClose();
       }}
     >
       <form onSubmit={handleSubmit(submit)} noValidate>
         <p className="modal-description">
-          Puedes cotizar piezas personalizadas sin crear productos en el
+          Puedes registrar piezas personalizadas sin crear productos en el
           catálogo. Agrega tantas piezas como necesites. Los gramos, horas y
-          costos se calculan por unidad. La cotización guardará una copia de los
-          costos actuales; no reserva ni consume material.
+          costos se calculan por unidad.
+          {mode === "order"
+            ? " Al confirmar el pedido se reserva el filamento; solo la producción registrada consume existencias."
+            : " La cotización guarda los costos actuales; no reserva ni consume material."}
         </p>
+        {mode === "order" && (
+          <section className="panel direct-order-options">
+            <div className="business-form-grid">
+              <label className="field">
+                Fecha de entrega *
+                <input
+                  type="datetime-local"
+                  value={promisedAt}
+                  onChange={(e) => setPromisedAt(e.target.value)}
+                />
+              </label>
+              <label className="field">
+                Estado real del trabajo
+                <select
+                  value={initialStatus}
+                  onChange={(e) => setInitialStatus(e.target.value)}
+                >
+                  {Object.entries(statusNames)
+                    .filter(([key]) => key !== "cancelled")
+                    .map(([key, label]) => (
+                      <option key={key} value={key}>
+                        {key === "confirmed"
+                          ? "Confirmado · se permite sin anticipo"
+                          : label}
+                      </option>
+                    ))}
+                </select>
+              </label>
+            </div>
+            <label className="checkbox-field">
+              <input
+                type="checkbox"
+                checked={alreadyPrinted}
+                onChange={(e) => {
+                  setAlreadyPrinted(e.target.checked);
+                  if (
+                    e.target.checked &&
+                    !["finishing", "ready_delivery", "delivered"].includes(
+                      initialStatus,
+                    )
+                  )
+                    setInitialStatus("ready_delivery");
+                }}
+              />
+              Estas piezas ya están impresas; confirmo los gramos, horas y
+              costos indicados como consumo real.
+            </label>
+            <p>
+              El pedido puede registrarse sin anticipo. El saldo del cliente
+              quedará visible. Si marcas piezas ya impresas se registran su
+              producción y consumo de filamento.
+            </p>
+          </section>
+        )}
         <div className="business-form-grid">
           <div className="field">
             <label htmlFor="quote-customer">Cliente *</label>
@@ -218,7 +327,14 @@ function QuoteComposer({
         {lines.map((line, index) => (
           <section className="quote-line-editor" key={index}>
             <div className="form-section-heading">
-              <h3>Producto {index + 1}</h3>
+              <h3>Pieza {index + 1}</h3>
+              <button
+                type="button"
+                className="text-button"
+                onClick={() => setLines((v) => [...v, structuredClone(line)])}
+              >
+                Repetir pieza
+              </button>
               {lines.length > 1 && (
                 <button
                   type="button"
@@ -349,7 +465,11 @@ function QuoteComposer({
             Cancelar
           </button>
           <button className="button primary" disabled={operation.busy}>
-            {operation.busy ? "Guardando…" : "Guardar cotización"}
+            {operation.busy
+              ? "Guardando…"
+              : mode === "order"
+                ? "Guardar pedido"
+                : "Guardar cotización"}
           </button>
         </div>
       </form>
@@ -358,6 +478,15 @@ function QuoteComposer({
           title="Nuevo cliente"
           action="customer_save"
           fields={customerFields}
+          onSaved={(result) => {
+            if (
+              result &&
+              typeof result === "object" &&
+              !Array.isArray(result) &&
+              typeof result.id === "string"
+            )
+              setCreatedCustomer(result.id);
+          }}
           onClose={() => setCustomerForm(false)}
         />
       )}
@@ -369,10 +498,28 @@ export function QuotesPage() {
     [search, setSearch] = useState(""),
     [compose, setCompose] = useState(false),
     [editing, setEditing] = useState<Quote | null>(null),
+    [template, setTemplate] = useState<Quote | Order | null>(null),
+    [repeatError, setRepeatError] = useState<string | null>(null),
     [convert, setConvert] = useState<Quote | null>(null),
     [product, setProduct] = useState(false);
   const catalog = useCatalog(),
     navigate = useNavigate();
+  const [params, setParams] = useSearchParams();
+  const repeatOrder = params.get("repetir");
+  useEffect(() => {
+    if (!repeatOrder) return;
+    let alive = true;
+    void readBusiness<PageData<Order>>("orders", { id: repeatOrder })
+      .then((r) => {
+        if (alive && r.rows[0]) setTemplate(r.rows[0]);
+      })
+      .catch(() => {
+        if (alive) setRepeatError("No se pudo cargar la impresión a repetir.");
+      });
+    return () => {
+      alive = false;
+    };
+  }, [repeatOrder]);
   const { data, loading, error, refresh } = useBusiness<PageData<Quote>>(
     "quotes",
     { page, search },
@@ -391,6 +538,7 @@ export function QuotesPage() {
         }
       />
       <CatalogWarning catalog={catalog.data} />
+      {repeatError && <Notice>{repeatError}</Notice>}
       <Toolbar
         search={search}
         onSearch={(s) => {
@@ -508,6 +656,12 @@ export function QuotesPage() {
                     </div>
                   ))}
                 </details>
+                <button
+                  className="button secondary"
+                  onClick={() => setTemplate(q)}
+                >
+                  Repetir cotización
+                </button>
                 {q.status === "draft" && (
                   <button
                     className="button secondary"
@@ -530,7 +684,7 @@ export function QuotesPage() {
         )}
         {data && <Pagination data={data} onPage={setPage} />}
       </ReadState>
-      {(compose || editing) && (
+      {(compose || editing || template) && (
         <ReadState
           loading={catalog.loading && !catalog.data}
           error={catalog.error}
@@ -539,10 +693,13 @@ export function QuotesPage() {
           {catalog.data && (
             <QuoteComposer
               catalog={catalog.data}
+              template={template ?? undefined}
               quote={editing ?? undefined}
               onClose={() => {
                 setCompose(false);
                 setEditing(null);
+                setTemplate(null);
+                if (repeatOrder) setParams({});
               }}
             />
           )}
@@ -552,8 +709,8 @@ export function QuotesPage() {
         <OperationForm
           title="Crear pedido desde cotización"
           action="order_create"
-          extra={{ quote_id: convert.id }}
-          description="Se conservan los productos y costos cotizados. Crear el pedido no cobra dinero ni consume filamento; al confirmarlo se reservará material."
+          extra={{ quote_id: convert.id, allow_without_deposit: true }}
+          description="Se conservan los productos y costos cotizados. Se confirma sin exigir anticipo y reserva material. No se registra un cobro; todo el saldo queda pendiente."
           fields={[
             {
               name: "promised_at",

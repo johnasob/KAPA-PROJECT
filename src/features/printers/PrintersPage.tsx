@@ -170,12 +170,8 @@ export function PrintersPage() {
                     </dd>
                   </div>
                   <div>
-                    <dt>Amortización por hora</dt>
-                    <dd>
-                      {p.depreciation_rate === null
-                        ? "Sin configurar"
-                        : money(p.depreciation_rate)}
-                    </dd>
+                    <dt>Amortización aplicada en cotizaciones</dt>
+                    <dd>Hasta 10 % del material</dd>
                   </div>
                   <div>
                     <dt>Potencia / deuda</dt>

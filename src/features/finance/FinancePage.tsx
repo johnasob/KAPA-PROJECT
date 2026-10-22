@@ -1,3 +1,4 @@
+import { PurchaseEditor, DebtEditor } from "./FinancingEditor";
 import { MonthlyBudget } from "./MonthlyBudget";
 import { OpeningBalances } from "./OpeningBalances";
 import { useState } from "react";
@@ -320,6 +321,8 @@ export function PartnerFinance({ embedded = false }: { embedded?: boolean }) {
   );
 }
 export function FinancePage() {
+  const [editPurchase, setEditPurchase] = useState<string | null>(null),
+    [editDebt, setEditDebt] = useState<Debt | null>(null);
   const [tab, setTab] = useState("cash"),
     [page, setPage] = useState(0),
     [search, setSearch] = useState(""),
@@ -783,7 +786,15 @@ export function FinancePage() {
                           }
                         </td>
                         <td>{money(p.total)}</td>
-                        <td>{money(p.paid_initial)}</td>
+                        <td>
+                          {money(p.paid_initial)}
+                          <button
+                            className="text-button"
+                            onClick={() => setEditPurchase(p.id)}
+                          >
+                            Editar compra
+                          </button>
+                        </td>
                         <td>{money(p.debt_balance)}</td>
                         <td>
                           {p.voided_at ? (
@@ -837,6 +848,18 @@ export function FinancePage() {
                       <small>{d.supplier_name}</small>
                     </div>
                     <h2>{d.description}</h2>
+                    {!d.voided_at && (
+                      <button
+                        className="button secondary"
+                        onClick={() =>
+                          d.purchase_id
+                            ? setEditPurchase(d.purchase_id)
+                            : setEditDebt(d)
+                        }
+                      >
+                        Editar deuda / compra
+                      </button>
+                    )}
                     <span className="pill">
                       {d.financing === "credit_card"
                         ? "Tarjeta de crédito"
@@ -920,6 +943,15 @@ export function FinancePage() {
             {data && <Pagination data={data} onPage={setPage} />}
           </ReadState>
         </>
+      )}
+      {editPurchase && (
+        <PurchaseEditor
+          id={editPurchase}
+          onClose={() => setEditPurchase(null)}
+        />
+      )}
+      {editDebt && (
+        <DebtEditor debt={editDebt} onClose={() => setEditDebt(null)} />
       )}
       {form && <OperationForm {...form} onClose={() => setForm(null)} />}
     </>

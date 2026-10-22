@@ -83,6 +83,19 @@ export function OverviewPage() {
         }
       />
       <MonthlyBudget />
+      {!!data?.alerts.balances?.length && (
+        <section className="panel month-budget">
+          <h2>Clientes con saldo pendiente</h2>
+          {data.alerts.balances.map((o) => (
+            <p key={o.id}>
+              <Link to={"/pedidos?pedido=" + o.id}>
+                K-{o.number} · {o.customer_name} · {money(o.balance)}{" "}
+                {o.paid === 0 ? "· Sin anticipo" : "· Abono recibido"} ↗
+              </Link>
+            </p>
+          ))}
+        </section>
+      )}
       {!!data?.alerts.stale_orders?.length && (
         <section className="panel month-budget">
           <h2>Pedidos sin iniciar hace 3 días o más</h2>

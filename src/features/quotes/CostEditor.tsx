@@ -3,6 +3,7 @@ import Decimal from "decimal.js";
 import { useId } from "react";
 import {
   calculateCost,
+  totalColorMaterial,
   lotName,
   type Catalog,
   type CostInputs,
@@ -207,32 +208,40 @@ export function CostEditor({
                 ))}
             </select>
           </div>
-          {(
-            [
-              ["piece_grams", "Pieza (g)"],
-              ["support_grams", "Soportes (g)"],
-              ["waste_grams", "Purgado / merma (g)"],
-            ] as const
-          ).map(([k, label]) => (
-            <div className="field" key={k}>
-              <label htmlFor={prefix + k + i}>{label}</label>
-              <input
-                id={prefix + k + i}
-                min="0"
-                step="0.001"
-                type="number"
-                value={m[k]}
-                onChange={(e) =>
-                  onChange({
-                    ...value,
-                    materials: value.materials.map((v, j) =>
-                      j === i ? { ...v, [k]: e.target.value } : v,
-                    ),
-                  })
-                }
-              />
-            </div>
-          ))}
+          <div className="field">
+            <label htmlFor={prefix + "total-grams" + i}>
+              Total de este color (g)
+            </label>
+            <input
+              id={prefix + "total-grams" + i}
+              type="number"
+              min="0.001"
+              step="0.001"
+              value={
+                m.piece_grams || m.support_grams || m.waste_grams
+                  ? totalColorMaterial(m).piece_grams
+                  : ""
+              }
+              onChange={(e) =>
+                onChange({
+                  ...value,
+                  materials: value.materials.map((it, j) =>
+                    j === i
+                      ? {
+                          ...it,
+                          piece_grams: e.target.value,
+                          support_grams: "0",
+                          waste_grams: "0",
+                        }
+                      : it,
+                  ),
+                })
+              }
+            />
+            <small>
+              Un solo total por color. Incluye todo el material usado.
+            </small>
+          </div>
           {value.materials.length > 1 && (
             <button
               type="button"
@@ -336,7 +345,7 @@ export function CostEditor({
       {!production && (
         <>
           <div className="multiplier-options">
-            <span>Multiplicador del costo</span>
+            <span>Precio orientativo por unidad</span>
             {["2", "3", "4"].map((m) => (
               <button
                 key={m}
@@ -352,6 +361,7 @@ export function CostEditor({
                 }
               >
                 ×{m}
+                {m === "3" ? " · Recomendado" : ""}
                 {result && <small>{money(result.total * Number(m))}</small>}
               </button>
             ))}
@@ -363,6 +373,11 @@ export function CostEditor({
           )}
         </>
       )}
+      <p className="field-help">
+        La amortización aplicada es el menor valor entre el uso de la impresora
+        y el 10 % del material. El precio sugerido incluye los demás costos que
+        registres.
+      </p>
       {result ? (
         <div className="cost-breakdown">
           <dl>
@@ -371,7 +386,7 @@ export function CostEditor({
               <dd>{money(result.material_cost)}</dd>
             </div>
             <div>
-              <dt>Amortización</dt>
+              <dt>Amortización · máximo 10 % del material</dt>
               <dd>{money(result.depreciation_cost)}</dd>
             </div>
             <div>

@@ -14,7 +14,7 @@ insert into refinement_fixture values('piece','{"description":"Llaveros NFC","qu
 grant select on refinement_fixture to authenticated;
 set local request.jwt.claim.sub='81000000-0000-0000-0000-000000000001';
 set local role authenticated;
-select is((public.business_read('capabilities')->>'schema_version')::integer,2,'La interfaz puede comprobar la versión del servidor antes de guardar');
+select is((public.business_read('capabilities')->>'schema_version')::integer,3,'La interfaz puede comprobar la versión del servidor antes de guardar');
 select lives_ok($$select pg_temp.op('lot_purchase','{"id":"83000000-0000-0000-0000-000000000001","brand":"Refinamientos","kind":"PLA","color":"Vinotinto","initial_grams":"1000","total":"90000","paid":"0","financing":"credit_card","installments":"3","installment_interest":"100","description":"Tarjeta filamento"}')$$,'Compra con tarjeta financiada sin caja inicial');
 select is((public.business_read('cash')->'summary'->>'cash')::numeric,0::numeric,'Financiar no genera caja negativa');
 select is((select financing from public.debts where description='Tarjeta filamento'),'credit_card','La deuda identifica tarjeta de crédito');
@@ -55,8 +55,7 @@ select lives_ok($$select pg_temp.op('line_deliver',jsonb_build_object('line_id',
 select is((select delivered_quantity from public.order_lines where description='Llaveros NFC'),1,'Conserva progreso de entrega por pieza');
 select is((public.business_read('receivables')->>'total')::integer,0,'Una unidad entregada y cubierta no es cuenta por cobrar');
 select lives_ok($$select pg_temp.op('production_create',(select v from refinement_fixture where k='piece')||jsonb_build_object('line_id',pg_temp.line_id('Llaveros NFC'),'good_units',1,'hours','0.75'))$$,'Producir la segunda unidad');
-select throws_ok($$select pg_temp.op('line_deliver',jsonb_build_object('line_id',pg_temp.line_id('Llaveros NFC'),'version',pg_temp.ver(),'delivered_quantity',2))$$,'PT422',null,'Entrega sin cobrar requiere autorización explícita');
-select lives_ok($$select pg_temp.op('line_deliver',jsonb_build_object('line_id',pg_temp.line_id('Llaveros NFC'),'version',pg_temp.ver(),'delivered_quantity',2,'confirm_unpaid_delivery',true))$$,'Entregar segunda unidad a crédito');
+select lives_ok($$select pg_temp.op('line_deliver',jsonb_build_object('line_id',pg_temp.line_id('Llaveros NFC'),'version',pg_temp.ver(),'delivered_quantity',2))$$,'Entregar segunda unidad a crédito');
 select is((public.business_read('receivables')->>'total')::integer,1,'Apartado entregado por cobrar incluye entrega parcial pendiente');
 select is((public.business_read('cash')->'summary'->>'delivered_receivables')::numeric,6000::numeric,'Solo el valor entregado no cubierto es cartera entregada');
 select throws_ok($$select pg_temp.op('order_delete',jsonb_build_object('order_id','85000000-0000-0000-0000-000000000001','version',pg_temp.ver(),'reason','Intento con deuda pendiente'))$$,'PT422',null,'Eliminar no borra deudas del cliente');

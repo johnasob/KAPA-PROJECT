@@ -3406,3 +3406,139 @@ body {
 .sidebar-account {
   border-top-color: #e9dad0;
 }
+
+/* Resumen de colores y tablero del taller. */
+.material-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 360px), 1fr));
+  gap: 18px;
+}
+.material-summary-card {
+  display: flex;
+  gap: 18px;
+  padding: 22px;
+  align-items: flex-start;
+}
+.material-swatch {
+  width: 64px;
+  height: 64px;
+  flex: none;
+  border-radius: 50%;
+  border: 6px solid #fff9eb;
+  outline: 1px solid #d8c7bc;
+  box-shadow: inset 0 0 0 1px #0002;
+}
+.material-summary-card strong {
+  display: block;
+  font-size: 22px;
+  color: #701b34;
+  margin: 8px 0;
+}
+.material-summary-card progress,
+.order-card progress {
+  width: 100%;
+  height: 8px;
+  accent-color: #701b34;
+}
+.color-dot {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 1px solid #bba6a4;
+  display: inline-block;
+  flex: none;
+}
+.roll-color-title {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+.order-status-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 10px;
+  margin: 20px 0;
+}
+.status-tile {
+  padding: 14px;
+  text-align: left;
+  border: 1px solid #e5d6cf;
+  border-top: 4px solid #a28088;
+  border-radius: 10px;
+  background: #fffdf7;
+  color: #4b081a;
+}
+.status-tile strong {
+  display: block;
+  font-size: 26px;
+}
+.status-tile span {
+  font-size: 12px;
+}
+.status-tile.selected {
+  outline: 2px solid #701b34;
+  outline-offset: 2px;
+}
+.status-pending_deposit,
+.status-confirmed,
+.status-design {
+  border-top-color: #bf964d;
+}
+.status-printing,
+.status-ready,
+.status-finishing {
+  border-top-color: #701b34;
+  background: #f8edef;
+}
+.status-ready_delivery,
+.status-delivered {
+  border-top-color: #6b8069;
+}
+.status-cancelled {
+  border-top-color: #9b9795;
+  background: #f4f0ec;
+}
+.direct-order-options {
+  padding: 18px;
+  margin: 16px 0;
+}
+.state-filter {
+  max-width: 320px;
+}
+@media (max-width: 600px) {
+  .order-status-summary {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .status-tile {
+    padding: 10px;
+  }
+  .material-summary-card {
+    padding: 16px;
+    gap: 12px;
+  }
+  .material-swatch {
+    width: 48px;
+    height: 48px;
+  }
+}
+
+.material-summary-card progress,
+.order-card progress {
+  appearance: none;
+  border: none;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #eadbde;
+}
+.material-summary-card progress::-webkit-progress-bar,
+.order-card progress::-webkit-progress-bar {
+  background: #eadbde;
+}
+.material-summary-card progress::-webkit-progress-value,
+.order-card progress::-webkit-progress-value {
+  background: #701b34;
+}
+.material-summary-card progress::-moz-progress-bar,
+.order-card progress::-moz-progress-bar {
+  background: #701b34;
+}

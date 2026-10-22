@@ -1,12 +1,12 @@
 # Verificación de KAPA 3D
 
-Validado el 20 de octubre de 2026 en el entorno local de Codex con Node 24, Chromium y Supabase real: Auth, PostgREST, Storage y PostgreSQL 17. Los recorridos de integración no simulan respuestas de la aplicación.
+Validado el 22 de octubre de 2026 en el entorno local de Codex con Node 24, Chromium y Supabase real: Auth, PostgREST, Storage y PostgreSQL 17. Los recorridos de integración no simulan respuestas de la aplicación.
 
 | Comprobación                                                                                              | Resultado                   |
 | --------------------------------------------------------------------------------------------------------- | --------------------------- |
 | TypeScript estricto y compilación de producción                                                           | Aprobados                   |
-| Vitest: configuración, registro, costos decimales, precios, Excel/CSV y enlaces                           | 45 pruebas                  |
-| pgTAP: permisos, fundamentos, registro y operaciones                                                      | 252 pruebas                 |
+| Vitest: configuración, registro, costos decimales, precios, Excel/CSV y enlaces                           | 48 pruebas                  |
+| pgTAP: permisos, fundamentos, registro y operaciones                                                      | 312 pruebas                 |
 | Playwright: acceso, sesión, configuración, móvil y auditoría                                              | Aprobado                    |
 | Playwright: registro de tres campos, protección y aprobación de cuenta                                    | Aprobado                    |
 | Playwright: idempotencia, conflicto entre socios y recuperación por correo local                          | Aprobado                    |
@@ -15,7 +15,7 @@ Validado el 20 de octubre de 2026 en el entorno local de Codex con Node 24, Chro
 | Excel/CSV descargados y PDF generado por Chromium con filas reales del reporte                            | Aprobados                   |
 | Quince reportes y seis gráficos consultados desde el navegador                                            | Aprobados                   |
 | Navegación por los ocho módulos desde móvil de 390 px sin desbordamiento de documento                     | Aprobada                    |
-| Total de recorridos Playwright                                                                            | 9                           |
+| Total de recorridos Playwright                                                                            | 10                          |
 | Instalación nueva, repetición y actualización con administrador y datos existentes                        | Aprobadas en bases aisladas |
 | Instalación parcial: rechazo y rollback completo                                                          | Aprobado                    |
 | Reinicio de Supabase con volúmenes conservados y Storage habilitado                                       | Aprobado                    |
@@ -25,8 +25,8 @@ Validado el 20 de octubre de 2026 en el entorno local de Codex con Node 24, Chro
 - Reintentar una operación no duplica dinero, producción, gramos ni horas. Reutilizar UUID con otros datos o usuario se rechaza.
 - Comprar a crédito registra solo el pago inicial en caja y la diferencia como deuda; pagar principal no vuelve a generar gasto. Los intereses se registran aparte y los abonos se imputan a cuotas.
 - Material, soporte y purga se incluyen en costo y reservas. Cotizar y reservar no consumen existencias. La producción consume solo gramos reales y respeta las reservas ajenas. Un error de stock revierte toda la producción.
-- Margen y recargo usan denominadores diferentes; pintado y personalización se contabilizan una vez. Los costos guardados se conservan.
-- Anticipos y saldos no superan ni duplican la venta. Entrega con saldo y producción sin anticipo requieren autorización. Cancelar con cobros exige devolución real y libera reservas.
+- Margen y recargo usan denominadores diferentes; pintado y personalización se contabilizan una vez. Los costos guardados conservan los valores originales de material; la actualización corrige únicamente la amortización excesiva y los totales derivados, respetando precios pactados y cobros.
+- Anticipos y saldos no superan ni duplican la venta. Los pedidos pueden confirmarse sin anticipo y entregarse con saldo, que permanece en cartera y avisos; el registro de consumo de piezas ya impresas requiere confirmación de sus cantidades reales. Cancelar con cobros exige devolución real y libera reservas.
 - Solo una entrega totalmente cobrada produce utilidad realizada del pedido. Capital y préstamos no generan utilidad. Amortización, asignaciones y reservas no descuentan caja.
 - Liquidaciones 50/50, reservas, adelantos compensados y retiros mantienen saldos independientes; no se liquida dos veces la misma ganancia. Las pérdidas posteriores limitan liberar reservas.
 - Retiros superiores al saldo y caja negativa requieren autorización expresa y motivo. NaN y stock negativo se rechazan.
@@ -60,3 +60,12 @@ Los límites de catálogos (1.000 opciones), exportación (50.000 filas), PDF po
 - Instalador sobre la versión operativa anterior, incluyendo cobro, compensación y nuevo cobro con el mismo timestamp; conserva el saldo y reconstruye asignaciones usando la auditoría. Repetición sin duplicar datos ni auditoría.
 
 El noveno recorrido conecta el frontend con la función de lectura de la versión anterior real, comprueba las instrucciones de actualización y recupera el espacio al restaurar el esquema vigente; no simula respuestas HTTP.
+
+
+## Corrección de amortización y operaciones sencillas
+
+- PostgreSQL y el cálculo decimal del navegador aplican el máximo del 10 % del material, incluso con una adquisición de $16.810.476.172,91 y con importes de material inferiores a un centavo de amortización.
+- Una compra mal clasificada de $90.000 deja caja en −$90.000. Corregirla a tarjeta con pago inicial 0 deja caja en 0, deuda de $90.000, inventario sin cambios y el movimiento original conservado. Abonar y volver a editar mantiene el pago real, excluye cuotas reemplazadas y bloquea reducir capital por debajo de lo abonado.
+- Los filtros de estado, contadores, saldos sin anticipo, alta de cliente dentro del pedido, registro de piezas ya impresas y copia de impresiones usan RPC reales y conservan stock/caja. Se verifican permisos de cuentas ajenas para los nuevos editores.
+- Cinco escenarios de instalador: instalación nueva, fundamentos existentes, operaciones anteriores, versión completa anterior con costos inflados y rechazo de esquema parcial. Se repite el instalador y se comprueba que no duplique auditoría, costos ni movimientos. La versión anterior con producción de $2.200 se corrige a $220, incluida amortización de $20; conserva venta y cobro de $600, stock de 80 g y deuda de $1.000. Un borrador automático pasa de $3.300 a $330.
+- El décimo recorrido de Chromium verifica corrección a tarjeta desde el rollo, tono visual y resumen de filamento, reprogramación de cuotas con abonos y edición de deuda independiente sin ingresos ficticios, cliente creado/seleccionado dentro del pedido, entrega ya impresa sin anticipo, reapertura con motivo y conservación de consumo, copia a cotización y repetición de piezas, tablero por estado y vista móvil.

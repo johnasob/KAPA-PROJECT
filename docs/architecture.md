@@ -57,3 +57,12 @@ Los experimentos sin pedido cargan consumo físico y gasto material a movimiento
 Excel se genera en el navegador con `write-excel-file`, cargado al exportar (~70 KB sin comprimir en la compilación verificada). Las celdas de texto tienen tipo explícito String; no se interpreta contenido del cliente como fórmula. Se mantienen el límite de 50.000 filas y la misma instantánea SQL de CSV/PDF.
 
 Al iniciar el espacio se consulta la versión del esquema antes de mostrar los módulos. Una base anterior muestra instrucciones y enlaces al instalador; no permite guardar cotizaciones con un cálculo que todavía ignore insumos nuevos.
+
+
+## Corrección de amortización y operación directa (esquema 3)
+
+`20261023000100_easy_operations.sql` conserva el contrato de las RPC y agrega versión de compra/deuda/rollo, color visual y marca de cuotas reemplazadas. `private.op_depreciation` centraliza el límite del 10 % del material con truncamiento a centavos; decimal.js reproduce la regla. La actualización corrige los snapshots y totales guardados con el material histórico, conserva precios pactados y pagos, y registra sus conteos en `private.kapa_updates`. Los borradores de precio automático se recalculan. No modifica caja, stock ni liquidaciones realizadas.
+
+`purchase_reclassify` compensa el pago inicial mal clasificado con un movimiento trazable de efecto económico cero. `op_replan_debt` conserva los pagos y el plan anterior, y crea cuotas activas solo por capital pendiente; las consultas, alertas y reportes excluyen cuotas reemplazadas. `debt_edit` permite corregir deudas independientes sin crear ingresos ficticios. Los editores usan versiones y el bloqueo transaccional existente.
+
+`order_quick_create` agrupa cotización, pedido, reserva y producción confirmada opcional en una transacción. Los estados son editables directamente y no exigen pago inicial. Marcar piezas ya impresas registra una única producción por las unidades todavía faltantes; stock y reservas siguen protegidos. Reabrir una entrega exige motivo y genera eventos inversos de entrega, sin devolver material. Los saldos permanecen en cartera. La lectura incluye filtros de estado en servidor y contadores globales; resumen de filamento agrupado por color, cliente dentro del compositor y repetición de piezas/impresiones se apoyan en las mismas RPC verificadas.

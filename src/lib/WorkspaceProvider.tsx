@@ -54,7 +54,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
           Number(
             (capabilities.data as { schema_version?: number } | null)
               ?.schema_version ?? 0,
-          ) >= 2
+          ) >= 3
         )
       ) {
         setUpgradeNeeded(true);
